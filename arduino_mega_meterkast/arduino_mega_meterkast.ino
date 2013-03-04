@@ -74,6 +74,10 @@ unsigned long SendTimer;
 unsigned char sensid;
 float nRF_ds_t, nRF_bmp_t;
 unsigned long nRF_bmp_p;
+float MC_dE, MC_T1, MC_T2, MC_P, MC_F;
+unsigned long MCTimer, MCTimer2;
+char MCLine[92];
+unsigned char MCIndex;
 
 void setup()
 {
@@ -100,6 +104,8 @@ void setup()
   Timer1.attachInterrupt(timercallback);
   
   SendTimer = millis();
+  MCTimer = millis();
+  MCTimer2 = millis();
 }
 
 void timercallback()
@@ -256,7 +262,17 @@ void loop()
             client.println("Connnection: close");
             client.println();
             client.print("{\"state\":");
-            client.print(digitalRead(42));  
+            client.print(digitalRead(42));
+            client.print(",\"warmte\":");
+            client.print(MC_dE);  
+            client.print(",\"T1\":");
+            client.print(MC_T1);  
+            client.print(",\"T2\":");
+            client.print(MC_T2);  
+            client.print(",\"Power\":");
+            client.print(MC_P);  
+            client.print(",\"Flow\":");
+            client.print(MC_F);  
             client.println("}");
           }
           readString = "";
@@ -322,6 +338,7 @@ void loop()
     wirestate = 1;
     break;
   }
+  
   //onewire
   switch (DSState){
   case 0:
@@ -352,6 +369,7 @@ void loop()
     }
     break;
   }
+  
   //bel
   if (!digitalRead(46)) {
     digitalWrite(48, HIGH);
@@ -368,11 +386,8 @@ void loop()
   }
 
   //nRF
-  //Serial.println("tst");
   if((millis() - SendTimer) > 2000) {
-    //Serial.println("start send");
     if(!Mirf.isSending()){
-      //Serial.println("!issending");
       sensid++;
       if (sensid > 2) sensid = 0;
       serialpacked.cmd.cmd = sensid + 1;
@@ -412,5 +427,47 @@ void loop()
 //    Serial.print(t2 - t1);
 //    Serial.println(" us");
     
+  }
+  
+  //stadsverwarmingding
+  if((millis() - MCTimer) > 20000) {
+    Serial1.end();
+    Serial1.begin(300);
+    Serial1.println("/#1");
+    Serial1.end();
+    Serial1.begin(1200);
+    MCTimer = millis();
+    MCIndex = 0;
+  }
+  /*if((millis() - MCTimer2) > 1000) {
+    Serial.println(Serial1.available(), DEC);
+    MCTimer2 = millis();
+  }*/
+  if (Serial1.available() > 0) {
+    while (Serial1.available()) {
+      MCLine[MCIndex++] = Serial1.read() & 0x7F;
+    }
+    if (MCIndex == 83) {
+      for (i = 0; i < 83; i++) {
+        if (MCLine[i] == 13) MCLine[i] == 0;
+        if (MCLine[i] == 32) MCLine[i] == 0;
+      }
+      MC_dE = atol(&MCLine[2]) / 100;
+      MC_T1 = atol(&MCLine[26]) / 100;
+      MC_T2 = atol(&MCLine[34]) / 100;
+      MC_P = atol(&MCLine[50]) / 10;
+      MC_F = atol(&MCLine[58]);
+      
+      //Serial.println(MC_dE);
+      /*MC_dE = Serial1.parseFloat() / 1;
+      Serial1.parseFloat();
+      Serial1.parseFloat();
+      MC_T1 = Serial1.parseFloat() / 1;
+      MC_T2 = Serial1.parseFloat() / 1;
+      Serial1.parseFloat();
+      MC_P = Serial1.parseFloat() / 1;
+      MC_F = Serial1.parseFloat();
+      Serial1.parseFloat();*/
+    }
   }
 }

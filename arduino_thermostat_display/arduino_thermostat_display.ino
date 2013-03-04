@@ -31,7 +31,8 @@ byte addr[8];
 byte data[12];
 int i, j;
 unsigned long t0;
-char test[20];
+char test[25];
+unsigned int setpoint=200;
 
 // the LCD backlight is connected up to a pin so you can turn it on & off
 #define BACKLIGHT_LED 10
@@ -61,8 +62,15 @@ void setup()   {
   glcd.st7565_command(CMD_SET_ALLPTS_NORMAL);
   glcd.st7565_set_brightness(0x0C);
 
+  //uint8_t i;
+  //for (i=0; i < 128; i++) {
+  //  glcd.drawchar((i % 21) * 6, i/21, 167);
+  //}
+  //Serial.println(i, DEC);
+  //while(1);
   glcd.display(); // show splashscreen
-  glcd.clear();
+  //while(1);
+  //glcd.clear();
   
   while(ds.search(addr)) {
     Serial.print("ROM =");
@@ -83,9 +91,16 @@ void setup()   {
 void loop()                     
 {
   if (millis() - t0 > 1000) {
-    floatToString(test, Sensor[0].Temperature, 2, 6, true);
-    //strcat (test," °C");
-    glcd.drawstring(0, 0, test);
+    strcpy(test, "actual:   ");
+    floatToString(&test[10], Sensor[0].Temperature, 1, 5, true);
+    strcat (test,"\xA7""C");
+    //test[16] = -89;
+    glcd.drawstring(6, 1, test);
+    strcpy(test, "setpoint: ");
+    floatToString(&test[10], setpoint/10, 1, 5, true);
+    strcat (test,"\xA7""C");
+    //test[16] = -89;
+    glcd.drawstring(6, 2, test);
     glcd.display();
     t0 = millis();
   }
