@@ -452,11 +452,11 @@ void loop()
         if (MCLine[i] == 13) MCLine[i] == 0;
         if (MCLine[i] == 32) MCLine[i] == 0;
       }
-      MC_dE = atol(&MCLine[2]) / 100;
-      MC_T1 = atol(&MCLine[26]) / 100;
-      MC_T2 = atol(&MCLine[34]) / 100;
-      MC_P = atol(&MCLine[50]) / 10;
-      MC_F = atol(&MCLine[58]);
+      MC_dE = atol(&MCLine[2]) * 0.01;
+      MC_T1 = atol(&MCLine[26]) * 0.01;
+      MC_T2 = atol(&MCLine[34]) * 0.01;
+      MC_P = atol(&MCLine[50]) * 0.1;
+      MC_F = atol(&MCLine[58]) * 1.0;
       
       //Serial.println(MC_dE);
       /*MC_dE = Serial1.parseFloat() / 1;
