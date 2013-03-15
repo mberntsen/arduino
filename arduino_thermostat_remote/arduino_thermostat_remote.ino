@@ -23,6 +23,7 @@
 #include <OneWire.h>
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
+#include <dht11.h>
 
 union packed {
   struct test {
@@ -33,6 +34,10 @@ union packed {
     unsigned char cmd;
     int32_t value;
   } int32val;
+  struct test4 {
+    unsigned char cmd;
+    int value;
+  } intval;
   struct test2 {
     unsigned char cmd;
   } cmd;
@@ -51,10 +56,14 @@ Sensor_t Sensor[2] ={
 
 OneWire  ds(5);
 Adafruit_BMP085 bmp;
+dht11 DHT11;
+
+#define DHT11PIN 4
 
 byte RawIndex = 0;
 unsigned int DSState;
 unsigned long DSTimer;
+unsigned long dht11Timer;
 byte addr[8];
 byte data[12];
 int i, j;
@@ -80,6 +89,7 @@ void setup(){
   if (!bmp.begin()) {
     Serial.println("Could not find a valid BMP085 sensor, check wiring!");
   }
+  dht11Timer = millis();
 }
 
 void loop(){
@@ -109,6 +119,20 @@ void loop(){
         //Serial.print(bmp.readTemperature());
         serialpacked.floatval.cmd = 3;
         serialpacked.floatval.value = bmp.readTemperature();
+        Mirf.setTADDR((byte *)"clie1");
+        Mirf.send(serialpacked.bytes);
+        break;
+      case 4:
+        //Serial.print(bmp.readTemperature());
+        serialpacked.intval.cmd = 4;
+        serialpacked.intval.value = DHT11.humidity;
+        Mirf.setTADDR((byte *)"clie1");
+        Mirf.send(serialpacked.bytes);
+        break;
+      case 5:
+        //Serial.print(bmp.readTemperature());
+        serialpacked.intval.cmd = 5;
+        serialpacked.intval.value = DHT11.temperature;
         Mirf.setTADDR((byte *)"clie1");
         Mirf.send(serialpacked.bytes);
         break;
@@ -145,5 +169,33 @@ void loop(){
       //Serial.println(Sensor[0].Temperature);
     }
     break;
+  }
+  //dht11
+  if ((millis() - dht11Timer) >= 1000) {
+    dht11Timer = millis();
+    int chk = DHT11.read(DHT11PIN);
+
+    /*Serial.print("Read sensor: ");
+    switch (chk)
+    {
+      case DHTLIB_OK: 
+                  Serial.println("OK"); 
+                  break;
+      case DHTLIB_ERROR_CHECKSUM: 
+                  Serial.println("Checksum error"); 
+                  break;
+      case DHTLIB_ERROR_TIMEOUT: 
+                  Serial.println("Time out error"); 
+                  break;
+      default: 
+                  Serial.println("Unknown error"); 
+                  break;
+    }*/
+  
+    //Serial.print("Humidity (%): ");
+    //Serial.println(DHT11.humidity);
+  
+    //Serial.print("Temperature (oC): ");
+    //Serial.println(DHT11.temperature);
   }
 }

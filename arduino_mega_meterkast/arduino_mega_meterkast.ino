@@ -22,6 +22,10 @@ union packed {
     unsigned char cmd;
     int32_t value;
   } int32val;
+  struct test4 {
+    unsigned char cmd;
+    int value;
+  } intval;
   struct test2 {
     unsigned char cmd;
   } cmd;
@@ -74,6 +78,7 @@ unsigned long SendTimer;
 unsigned char sensid;
 float nRF_ds_t, nRF_bmp_t;
 unsigned long nRF_bmp_p;
+int nRF_dht_h, nRF_dht_t;
 float MC_dE, MC_T1, MC_T2, MC_P, MC_F;
 unsigned long MCTimer, MCTimer2;
 char MCLine[92];
@@ -245,6 +250,8 @@ void loop()
             client.print(nRF_ds_t);  
             client.print(",\"indoor_bmp\":");
             client.print(nRF_bmp_t);  
+            client.print(",\"indoor_dht\":");
+            client.print(nRF_dht_t);  
             client.println("}");
           }
           if (readString.startsWith("GET /presssens/ ")) {
@@ -254,6 +261,15 @@ void loop()
             client.println();
             client.print("{\"indoor\":");
             client.print(nRF_bmp_p);  
+            client.println("}");
+          }
+          if (readString.startsWith("GET /rhsens/ ")) {
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-Type: application/json");
+            client.println("Connnection: close");
+            client.println();
+            client.print("{\"indoor\":");
+            client.print(nRF_dht_h);  
             client.println("}");
           }
           if (readString.startsWith("GET /cv/ ")) {
@@ -389,7 +405,7 @@ void loop()
   if((millis() - SendTimer) > 2000) {
     if(!Mirf.isSending()){
       sensid++;
-      if (sensid > 2) sensid = 0;
+      if (sensid > 4) sensid = 0;
       serialpacked.cmd.cmd = sensid + 1;
       Mirf.setTADDR((byte *)"clie2");
       Mirf.send(serialpacked.bytes);
@@ -421,6 +437,16 @@ void loop()
         nRF_bmp_t = serialpacked.floatval.value;
         //Serial.print("bmp t =  ");
         //Serial.print(serialpacked.floatval.value);
+        break;
+      case 4:
+        nRF_dht_h = serialpacked.intval.value;
+        //Serial.print("dht h =  ");
+        //Serial.print(serialpacked.intval.value);
+        break;
+      case 5:
+        nRF_dht_t = serialpacked.intval.value;
+        //Serial.print("dht t =  ");
+        //Serial.print(serialpacked.intval.value);
         break;
     }
 //    Serial.print(" | dt = ");
