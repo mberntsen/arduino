@@ -83,6 +83,10 @@ float MC_dE, MC_T1, MC_T2, MC_P, MC_F;
 unsigned long MCTimer, MCTimer2;
 char MCLine[92];
 unsigned char MCIndex;
+boolean doneDumping = true;
+unsigned long LastRxTimer;
+unsigned char dumpTmp[5];
+boolean forcenRFDump = true;
 
 void setup()
 {
@@ -97,6 +101,7 @@ void setup()
 //  Mirf.csnPin = 42;
   Mirf.init();
   Mirf.setRADDR((byte *)"clie1");
+  Mirf.setTADDR((byte *)"clie2");
   Mirf.payload = sizeof(serialpacked);
   Mirf.config();
   
@@ -111,6 +116,8 @@ void setup()
   SendTimer = millis();
   MCTimer = millis();
   MCTimer2 = millis();
+  LastRxTimer = millis();
+  //doneDumping = true;
 }
 
 void timercallback()
@@ -291,6 +298,97 @@ void loop()
             client.print(MC_F);  
             client.println("}");
           }
+          if (readString.startsWith("GET /nrfdump/")) {
+            Mirf.readRegister(0x00, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x01, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x02, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x03, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x04, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x05, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x06, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x07, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x08, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x09, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x0A, dumpTmp, 5);
+      client.print(dumpTmp[0], HEX);
+      client.print(dumpTmp[1], HEX);
+      client.print(dumpTmp[2], HEX);
+      client.print(dumpTmp[3], HEX);
+      client.print(dumpTmp[4], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x0B, dumpTmp, 5);
+      client.print(dumpTmp[0], HEX);
+      client.print(dumpTmp[1], HEX);
+      client.print(dumpTmp[2], HEX);
+      client.print(dumpTmp[3], HEX);
+      client.print(dumpTmp[4], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x0C, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x0D, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x0E, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x0F, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x10, dumpTmp, 5);
+      client.print(dumpTmp[0], HEX);
+      client.print(dumpTmp[1], HEX);
+      client.print(dumpTmp[2], HEX);
+      client.print(dumpTmp[3], HEX);
+      client.print(dumpTmp[4], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x11, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x12, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x13, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x14, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x15, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x16, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x17, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x1C, dumpTmp, 1);
+      client.print(dumpTmp[0], HEX);
+      client.print(' ');
+      Mirf.readRegister(0x1D, dumpTmp, 1);
+      client.println(dumpTmp[0], HEX);
+          }
           readString = "";
           break;
         }
@@ -403,25 +501,124 @@ void loop()
 
   //nRF
   if((millis() - SendTimer) > 2000) {
+    if ((((millis() - LastRxTimer) > 2000) && (!doneDumping))/* || forcenRFDump*/) {
+      //dump hier
+      Mirf.readRegister(0x00, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x01, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x02, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x03, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x04, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x05, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x06, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x07, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x08, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x09, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0A, dumpTmp, 5);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(dumpTmp[1], HEX);
+      Serial.print(dumpTmp[2], HEX);
+      Serial.print(dumpTmp[3], HEX);
+      Serial.print(dumpTmp[4], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0B, dumpTmp, 5);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(dumpTmp[1], HEX);
+      Serial.print(dumpTmp[2], HEX);
+      Serial.print(dumpTmp[3], HEX);
+      Serial.print(dumpTmp[4], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0C, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0D, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0E, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0F, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x10, dumpTmp, 5);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(dumpTmp[1], HEX);
+      Serial.print(dumpTmp[2], HEX);
+      Serial.print(dumpTmp[3], HEX);
+      Serial.print(dumpTmp[4], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x11, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x12, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x13, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x14, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x15, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x16, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x17, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x1C, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x1D, dumpTmp, 1);
+      Serial.println(dumpTmp[0], HEX);
+      doneDumping = true;
+      //forcenRFDump = false;
+    }
     if(!Mirf.isSending()){
       sensid++;
       if (sensid > 4) sensid = 0;
       serialpacked.cmd.cmd = sensid + 1;
-      Mirf.setTADDR((byte *)"clie2");
+      dumpTmp[0] = 1;
+      Mirf.writeRegister(0x05, dumpTmp, 1);
+      //Mirf.setTADDR((byte *)"clie2");
       Mirf.send(serialpacked.bytes);
       //t1 = micros();
-      //Serial.print("request ");
-      //Serial.print(sensid, DEC);
+      Serial.print("nRF transmit ");
+      Serial.println(sensid, DEC);
       //Serial.println(" sent");
-      SendTimer = millis();
-    }
+      
+    } else {
+      Serial.println('isSending??');
+    }    
+    SendTimer = millis();
   } 
   
   if(!Mirf.isSending() && Mirf.dataReady()){
     Mirf.getData(serialpacked.bytes);
     //t2 = micros();
-    //Serial.print("package! cmd=");
-    //Serial.print(serialpacked.cmd.cmd, HEX);
+    Serial.print("nRF receive cmd=");
+    Serial.println(serialpacked.cmd.cmd, HEX);
     switch (serialpacked.cmd.cmd) {
       case 1:
         nRF_ds_t = serialpacked.floatval.value;
@@ -449,6 +646,8 @@ void loop()
         //Serial.print(serialpacked.intval.value);
         break;
     }
+    LastRxTimer = millis();
+    doneDumping = false;
 //    Serial.print(" | dt = ");
 //    Serial.print(t2 - t1);
 //    Serial.println(" us");
