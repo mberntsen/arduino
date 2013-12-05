@@ -1,176 +1,48 @@
-#include "TimerOne.h"
 #include <SPI.h>
 #include <Ethernet.h>
-#include <Wire.h>
-#include <OneWire.h>
-#include <Mirf.h>
-#include <nRF24L01.h>
-#include <MirfHardwareSpiDriver.h>
 
-typedef struct {
-  uint8_t Addr[8];
-  int16_t RawBuffer[10];
-  float   Temperature;
-} Sensor_t;
-
-union packed {
-  struct test {
-    unsigned char cmd;
-    float value;
-  } floatval;
-  struct test3 {
-    unsigned char cmd;
-    int32_t value;
-  } int32val;
-  struct test4 {
-    unsigned char cmd;
-    int value;
-  } intval;
-  struct test2 {
-    unsigned char cmd;
-  } cmd;
-  unsigned char bytes[8];
-} serialpacked;
-
-Sensor_t Sensor[2] ={
-  {{0x28, 0x0E, 0x1E, 0xEA, 0x03, 0x00, 0x00, 0x65},{0,0,0,0,0,0,0,0,0,0},},  // Outside
-  {{0x28, 0xFC, 0x9C, 0x8E, 0x04, 0x00, 0x00, 0xD5},{0,0,0,0,0,0,0,0,0,0},}  // Outside
-};
-
-int rxPin = 9;
-int txPin = 6;
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress ip(192,168,1, 177);
 IPAddress ipserver(192,168,1,150);
-byte buff[2];
-byte wirestate = 0;
-unsigned long wiret;
 EthernetServer server(80);
 EthernetClient client;
-OneWire  ds(5);
-byte RawIndex = 0;
-unsigned int DSState;
-unsigned long DSTimer;
-byte addr[8];
-byte data[12];
-int t;
-char aan1[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,1,0,0,1,0,0,0,1,1,1};
-char uit1[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0,1,0,0,0,1,1,1};
-char aan2[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,1,0,0,1,0,0,1,0,1,1};
-char uit2[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0,1,0,0,1,0,1,1};
-char aan3[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,1,0,0,1,0,0,1,1,1,1};
-char uit3[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0,1,0,0,1,1,1,1};
-char *cod;
-volatile char statemachine = 0;
-char heBitcount;
-char heSendcount;
-String readString;
-int i, j, k, m, n;
-boolean valfound;
-char ch[15];
-unsigned int light;
-unsigned int oldlight[12];
-unsigned long avglight;
-byte wirei;
-boolean isdark, oldisdark;
-boolean oldbel;
-unsigned long SendTimer;
-unsigned char sensid;
-float nRF_ds_t, nRF_bmp_t;
-unsigned long nRF_bmp_p;
-int nRF_dht_h, nRF_dht_t;
-float MC_dE, MC_T1, MC_T2, MC_P, MC_F;
-unsigned long MCTimer, MCTimer2;
-char MCLine[92];
-unsigned char MCIndex;
-boolean doneDumping = true;
-unsigned long LastRxTimer;
-unsigned char dumpTmp[5];
-boolean forcenRFDump = true;
-volatile unsigned long WaterCounter;
+
+unsigned long Teller1, Teller2, Teller3, Teller4;
 
 void setup()
 {
-  pinMode(rxPin, INPUT);
-  pinMode(txPin, OUTPUT);
-  pinMode(48, OUTPUT);
-  pinMode(15, INPUT);     //set the pin to input
-  digitalWrite(15, LOW); //use the internal pullup resistor
-  cli();		// switch interrupts off while messing with their settings  
-  PCICR =0x04;          // Enable PCINT1 interrupt
-  PCMSK2 = 0b10000000;
-  sei();		// turn interrupts back on
-  
-  Wire.begin();
   Serial.begin(9600);
 
-  Mirf.spi = &MirfHardwareSpi;
-//  Mirf.cePin = 44;
-//  Mirf.csnPin = 42;
-  Mirf.init();
-  Mirf.setRADDR((byte *)"clie1");
-  Mirf.setTADDR((byte *)"clie2");
-  Mirf.payload = sizeof(serialpacked);
-  Mirf.config();
-  
   Ethernet.begin(mac, ip);
   server.begin();
   Serial.print("server is at ");
   Serial.println(Ethernet.localIP());
 
-  Timer1.initialize(1000);
-  Timer1.attachInterrupt(timercallback);
+  attachInterrupt(0, tlr1, LOW);
+  attachInterrupt(1, tlr2, LOW);
+  attachInterrupt(2, tlr3, LOW);
+  attachInterrupt(3, tlr4, LOW);
   
-  SendTimer = millis();
-  MCTimer = millis();
-  MCTimer2 = millis();
-  LastRxTimer = millis();
-  //doneDumping = true;
 }
 
-void timercallback()
+void tlr1()
 {
-  switch (statemachine) {
-  case 1:
-    heSendcount = 0;
-  case 2:
-    digitalWrite(txPin, HIGH);
-    Timer1.setPeriod(250);
-    statemachine = 3;
-    heBitcount = 0;
-    break;
-  case 3:
-    digitalWrite(txPin, LOW);
-    Timer1.setPeriod(10000);
-    statemachine = 4;
-    break;
-  case 4:
-    digitalWrite(txPin, HIGH);
-    Timer1.setPeriod(250);
-    if (heBitcount < 57)
-      statemachine = 5;
-    else
-      statemachine = 6;
-    break;
-  case 5:  
-    digitalWrite(txPin, LOW);
-    if (cod[heBitcount] == 0)
-      Timer1.setPeriod(200);
-    else
-      Timer1.setPeriod(1000);
-    heBitcount++;
-    statemachine = 4;
-    break;
-  case 6:  
-    digitalWrite(txPin, LOW);
-    heSendcount++;
-    Timer1.setPeriod(1000);
-    if (heSendcount < 3)
-      statemachine = 2;
-    else
-      statemachine = 0;
-    break;
-  }
+  Teller1++;
+}
+
+void tlr2()
+{
+  Teller2++;
+}
+
+void tlr3()
+{
+  Teller3++;
+}
+
+void tlr4()
+{
+  Teller4++;
 }
 
 void loop()
@@ -191,7 +63,6 @@ void loop()
         // character) and the line is blank, the http request has ended,
         // so you can send a reply
         if (c == '\n' && currentLineIsBlank) {
-          Serial.println(readString);
           if (readString.startsWith("GET /send433/")) {
             i = 12;
               j = readString.indexOf('/', i + 1);
@@ -288,150 +159,22 @@ void loop()
             client.print(nRF_dht_h);  
             client.println("}");
           }
-          if (readString.startsWith("GET /cv/ ")) {
+          if (readString.startsWith("GET /elec/ ")) {
             client.println("HTTP/1.1 200 OK");
             client.println("Content-Type: application/json");
             client.println("Connnection: close");
             client.println();
-            client.print("{\"state\":");
-            client.print(digitalRead(42));
-            client.print(",\"warmte\":");
-            client.print(MC_dE);  
-            client.print(",\"T1\":");
-            client.print(MC_T1);  
-            client.print(",\"T2\":");
-            client.print(MC_T2);  
-            client.print(",\"Power\":");
-            client.print(MC_P);  
-            client.print(",\"Flow\":");
-            client.print(MC_F);  
+            client.print("{\"L1\":");
+            client.print(Teller1);
+            client.print(",\"L2\":");
+            client.print(Teller2);  
+            client.print(",\"L3\":");
+            client.print(Teller3);  
+            client.print(",\"Solar\":");
+            client.print(Teller4);  
             client.println("}");
           }
-          if (readString.startsWith("GET /water/ ")) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json");
-            client.println("Connnection: close");
-            client.println();
-            client.print("{\"water\":");
-            noInterrupts();
-            client.print(WaterCounter / 10.0);  
-            interrupts();
-            client.println("}");
-          }
-          if (readString.startsWith("GET /water/set/")) {
-            i = 14;
-            j = readString.indexOf('/', i + 1);
-            if (j > -1) {
-              readString.substring(i + 1, j).toCharArray(ch, 10);
-              noInterrupts();
-              WaterCounter = atol(ch);
-              interrupts();
-                   
-              client.println("HTTP/1.1 200 OK");
-              client.println("Content-Type: text/html");
-              client.println("Connnection: close");
-              client.println();
-              client.print("{\"water\":");
-              noInterrupts();
-              client.print(WaterCounter / 10.0);  
-              interrupts();
-              client.println("}");
-            }
-          }
-          if (readString.startsWith("GET /nrfdump/")) {
-            Mirf.readRegister(0x00, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x01, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x02, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x03, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x04, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x05, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x06, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x07, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x08, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x09, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0A, dumpTmp, 5);
-      client.print(dumpTmp[0], HEX);
-      client.print(dumpTmp[1], HEX);
-      client.print(dumpTmp[2], HEX);
-      client.print(dumpTmp[3], HEX);
-      client.print(dumpTmp[4], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0B, dumpTmp, 5);
-      client.print(dumpTmp[0], HEX);
-      client.print(dumpTmp[1], HEX);
-      client.print(dumpTmp[2], HEX);
-      client.print(dumpTmp[3], HEX);
-      client.print(dumpTmp[4], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0C, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0D, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0E, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0F, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x10, dumpTmp, 5);
-      client.print(dumpTmp[0], HEX);
-      client.print(dumpTmp[1], HEX);
-      client.print(dumpTmp[2], HEX);
-      client.print(dumpTmp[3], HEX);
-      client.print(dumpTmp[4], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x11, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x12, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x13, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x14, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x15, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x16, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x17, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x1C, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x1D, dumpTmp, 1);
-      client.println(dumpTmp[0], HEX);
-          }
-          readString = "";
-          break;
-        }
+        }  
         if (c == '\n') {
           // you're starting a new line
           currentLineIsBlank = true;
@@ -600,7 +343,7 @@ void loop()
     }    
     SendTimer = millis();
   } 
-  /*if ((millis() - LastRxTimer) > 2500) {
+  if ((millis() - LastRxTimer) > 2500) {
     Serial.println("timeout, reinit");
     Mirf.init();
     Mirf.setRADDR((byte *)"clie1");
@@ -608,7 +351,7 @@ void loop()
     Mirf.payload = sizeof(serialpacked);
     Mirf.config();
     LastRxTimer = millis();
-  }*/
+  }
   
   
   //stadsverwarmingding
