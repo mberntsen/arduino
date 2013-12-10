@@ -1,6 +1,6 @@
 #include "TimerOne.h"
 #include <SPI.h>
-#include <Ethernet.h>
+//#include <Ethernet.h>
 #include <Wire.h>
 #include <OneWire.h>
 #include <Mirf.h>
@@ -40,13 +40,13 @@ Sensor_t Sensor[2] ={
 int rxPin = 9;
 int txPin = 6;
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-IPAddress ip(192,168,1, 177);
-IPAddress ipserver(192,168,1,150);
+//IPAddress ip(192,168,1, 177);
+//IPAddress ipserver(192,168,1,150);
 byte buff[2];
 byte wirestate = 0;
 unsigned long wiret;
-EthernetServer server(80);
-EthernetClient client;
+//EthernetServer server(80);
+//EthernetClient client;
 OneWire  ds(5);
 byte RawIndex = 0;
 unsigned int DSState;
@@ -54,20 +54,34 @@ unsigned long DSTimer;
 byte addr[8];
 byte data[12];
 int t;
+unsigned char aan1[8] = {0x01, 0x8F, 0x36, 0xCE, 0x99, 0x75, 0xAE, 0x47};
+unsigned char uit1[8] = {0x01, 0x8F, 0x36, 0xCE, 0x99, 0x75, 0xAD, 0x47};
+unsigned char aan2[8] = {0x01, 0x8F, 0x36, 0xCE, 0x99, 0x75, 0xAE, 0x49};
+unsigned char uit2[8] = {0x01, 0x8F, 0x36, 0xCE, 0x99, 0x75, 0xAD, 0x49};
+unsigned char aan3[8] = {0x01, 0x8F, 0x36, 0xCE, 0x99, 0x75, 0xAE, 0x4B};
+unsigned char uit3[8] = {0x01, 0x8F, 0x36, 0xCE, 0x99, 0x75, 0xAD, 0x4B};
+
+
+/*
+// 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 
 char aan1[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,1,0,0,1,0,0,0,1,1,1};
 char uit1[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0,1,0,0,0,1,1,1};
 char aan2[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,1,0,0,1,0,0,1,0,1,1};
 char uit2[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0,1,0,0,1,0,1,1};
 char aan3[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,1,0,0,1,0,0,1,1,1,1};
 char uit3[57] = {1,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0,1,0,0,1,1,1,1};
-char *cod;
+*/
+unsigned char code433[8];
+unsigned char *cod;
 volatile char statemachine = 0;
-char heBitcount;
-char heSendcount;
+unsigned char heBitcount;
+unsigned char heSendcount;
+unsigned char heBytecount;
+unsigned char heBitmask;
 String readString;
 int i, j, k, m, n;
 boolean valfound;
-char ch[15];
+char ch[17];
 unsigned int light;
 unsigned int oldlight[12];
 unsigned long avglight;
@@ -89,11 +103,17 @@ unsigned char dumpTmp[5];
 boolean forcenRFDump = true;
 volatile unsigned long WaterCounter;
 
+
 void setup()
 {
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
+  
+  pinMode(46, OUTPUT);
+  pinMode(47, OUTPUT);
   pinMode(48, OUTPUT);
+  pinMode(49, OUTPUT);
+  
   pinMode(15, INPUT);     //set the pin to input
   digitalWrite(15, LOW); //use the internal pullup resistor
   cli();		// switch interrupts off while messing with their settings  
@@ -113,10 +133,10 @@ void setup()
   Mirf.payload = sizeof(serialpacked);
   Mirf.config();
   
-  Ethernet.begin(mac, ip);
-  server.begin();
-  Serial.print("server is at ");
-  Serial.println(Ethernet.localIP());
+  //Ethernet.begin(mac, ip);
+  //server.begin();
+  //Serial.print("server is at ");
+  //Serial.println(Ethernet.localIP());
 
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timercallback);
@@ -128,7 +148,7 @@ void setup()
   //doneDumping = true;
 }
 
-void timercallback()
+/*void timercallback()
 {
   switch (statemachine) {
   case 1:
@@ -171,64 +191,312 @@ void timercallback()
       statemachine = 0;
     break;
   }
+}*/
+
+//nieuw
+void timercallback()
+{
+  switch (statemachine) {
+  case 1:
+    heSendcount = 0;
+  case 2:
+    digitalWrite(txPin, HIGH);
+    Timer1.setPeriod(250);
+    statemachine = 3;
+    heBitmask = 0x01;
+    heBytecount = 0;
+    break;
+  case 3:
+    digitalWrite(txPin, LOW);
+    Timer1.setPeriod(10000);
+    statemachine = 4;
+    break;
+  case 4:
+    digitalWrite(txPin, HIGH);
+    Timer1.setPeriod(250);
+    if (heBytecount < 8)
+      statemachine = 5;
+    else
+      statemachine = 6;
+    break;
+  case 5:  
+    digitalWrite(txPin, LOW);
+    if ((cod[heBytecount] & heBitmask) == 0)
+      Timer1.setPeriod(200);
+    else
+      Timer1.setPeriod(1000);
+    heBitmask >>= 1;
+    if (heBitmask == 0) {
+      heBytecount++;
+      heBitmask = 0x80;
+    }
+    statemachine = 4;
+    break;
+  case 6:  
+    digitalWrite(txPin, LOW);
+    heSendcount++;
+    Timer1.setPeriod(1000);
+    if (heSendcount < 3)
+      statemachine = 2;
+    else
+      statemachine = 0;
+    break;
+  }
 }
+
+char sch;
 
 void loop()
 {
-  EthernetClient client = server.available();
-  if (client) {
-    //Serial.println("new client");
-    // an http request ends with a blank line
-    boolean currentLineIsBlank = true;
-    while (client.connected()) {
-      if (client.available()) {
-        char c = client.read();
-        //Serial.write(c);
-        if (readString.length() < 100) {
-          readString += c; 
+  //Serial.println(Serial.available());
+  
+  while (Serial.available()) {
+    sch = Serial.read();
+    //Serial.print(sch);
+    switch (sch) {
+      case 2:
+        readString = "";
+        break;
+      case 3:
+        //Serial.println(readString);
+        if (readString.startsWith("GET /send433/")) {
+          if (statemachine == 0) {
+            if (readString.length() >= 30) {
+              i = 12;
+              readString.substring(13).toCharArray(ch, 17);
+              memset(code433, 0, 8);
+              for (i = 0; i < 16; i++) {
+                switch(ch[i]) {
+                  case '0':
+                  case '1':
+                  case '2':
+                  case '3':
+                  case '4':
+                  case '5':
+                  case '6':
+                  case '7':
+                  case '8':
+                  case '9':
+                    code433[i >> 1] += ch[i] - '0';
+                    break;
+                  case 'a':
+                  case 'b':
+                  case 'c':
+                  case 'd':
+                  case 'e':
+                  case 'f':
+                    code433[i >> 1] += ch[i] - 'a' + 10;
+                    break;
+                  case 'A':
+                  case 'B':
+                  case 'C':
+                  case 'D':
+                  case 'E':
+                  case 'F':
+                    code433[i >> 1] += ch[i] - 'A' + 10;
+                    break;
+                }
+                if (i % 2 == 0) code433[i >> 1] <<= 4;
+              } 
+              /*for (i = 0; i < 16; i++)
+                Serial.print(ch[i], HEX);
+              Serial.print(' ');
+              for (i = 0; i < 8; i++) {
+                //Serial.print(aan1[i], HEX);
+                Serial.print(code433[i], HEX);
+              }*/             
+              cod = code433;
+              statemachine = 1;
+              Serial.print("OK\x03");
+            } 
+              Serial.print("invalid code\x03");
+          } else
+            Serial.print("busy\x03");
         }
-        // if you've gotten to the end of the line (received a newline
-        // character) and the line is blank, the http request has ended,
-        // so you can send a reply
-        if (c == '\n' && currentLineIsBlank) {
-          Serial.println(readString);
-          if (readString.startsWith("GET /send433/")) {
-            i = 12;
-              j = readString.indexOf('/', i + 1);
-              if ((j > -1) && (j < 20)) {
-                k = readString.indexOf(' ', j + 1);
-                readString.substring(i + 1, j).toCharArray(ch, 5);
-                m = atoi(ch);
-                readString.substring(j + 1, k).toCharArray(ch, 5);
-                n = atoi(ch);
-                while (statemachine != 0);
-                if (m == 1)
-                  if (n == 1)
-                    cod = aan1;
-                  else
-                    cod = uit1;
-                if (m == 2)
-                  if (n == 1)
-                    cod = aan2;
-                  else
-                    cod = uit2;
-                if (m == 3)
-                  if (n == 1)
-                    cod = aan3;
-                  else
-                    cod = uit3;
-                statemachine = 1;
-      
-                client.println("HTTP/1.1 200 OK");
-                client.println("Content-Type: text/html");
-                client.println("Connnection: close");
-                client.println();
-                client.print(m);
-                client.print(" = ");
-                client.println(n);
-              }
+        if (readString.startsWith("GET /lightsens/")) {
+          Serial.print("{\"lightsens\":");
+          Serial.print(light);  
+          Serial.print(",\"avglight\":");
+          Serial.print(avglight);  
+          Serial.print("}");
+          Serial.print("\x03");
+        }
+        if (readString.startsWith("GET /onewire/list/")) {
+          while(ds.search(addr)) {
+            Serial.print("ROM =");
+            for( i = 0; i < 8; i++) {
+              Serial.write(' ');
+              Serial.print(addr[i], HEX);
+            }
+          Serial.print("\x03");
           }
-          if (readString.startsWith("GET /lightsens/")) {
+        }
+        if (readString.startsWith("GET /tempsens/")) {
+          Serial.print("{\"metering\":");
+          Serial.print(Sensor[0].Temperature);  
+          Serial.print(",\"outdoor\":");
+          Serial.print(Sensor[1].Temperature);  
+          Serial.print(",\"indoor_ds\":");
+          Serial.print(nRF_ds_t);  
+          Serial.print(",\"indoor_bmp\":");
+          Serial.print(nRF_bmp_t);  
+          Serial.print(",\"indoor_dht\":");
+          Serial.print(nRF_dht_t);  
+          Serial.print("}");
+          Serial.print("\x03");
+        }
+        if (readString.startsWith("GET /presssens/")) {
+          Serial.print("{\"indoor\":");
+          Serial.print(nRF_bmp_p);  
+          Serial.print("}");
+          Serial.print("\x03");
+        }
+        if (readString.startsWith("GET /rhsens/")) {
+          Serial.print("{\"indoor\":");
+          Serial.print(nRF_dht_h);  
+          Serial.print("}");
+          Serial.print("\x03");
+        }
+        if (readString.startsWith("GET /cv/")) {
+          Serial.print("{\"state\":");
+          Serial.print(digitalRead(42));
+          Serial.print(",\"warmte\":");
+          Serial.print(MC_dE);  
+          Serial.print(",\"T1\":");
+          Serial.print(MC_T1);  
+          Serial.print(",\"T2\":");
+          Serial.print(MC_T2);  
+          Serial.print(",\"Power\":");
+          Serial.print(MC_P);  
+          Serial.print(",\"Flow\":");
+          Serial.print(MC_F);  
+          Serial.print("}");
+          Serial.print("\x03");
+        }
+        if (readString.startsWith("GET /water/")) {
+          Serial.print("{\"water\":");
+          noInterrupts();
+          Serial.print(WaterCounter / 10.0);  
+          interrupts();
+          Serial.print("}");
+          Serial.print("\x03");
+        }
+        if (readString.startsWith("SET /water/")) {
+          i = 14;
+          j = readString.indexOf('/', i + 1);
+          if (j > -1) {
+            readString.substring(i + 1, j).toCharArray(ch, 10);
+            noInterrupts();
+            WaterCounter = atol(ch);
+            interrupts();
+                   
+            Serial.print("{\"water\":");
+            noInterrupts();
+            Serial.print(WaterCounter / 10.0);  
+            interrupts();
+            Serial.print("}");
+            Serial.print("\x03");
+          }
+        }
+        if (readString.startsWith("GET /nrfdump/")) {
+          Mirf.readRegister(0x00, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x01, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x02, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x03, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x04, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x05, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x06, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x07, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x08, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x09, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0A, dumpTmp, 5);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(dumpTmp[1], HEX);
+      Serial.print(dumpTmp[2], HEX);
+      Serial.print(dumpTmp[3], HEX);
+      Serial.print(dumpTmp[4], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0B, dumpTmp, 5);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(dumpTmp[1], HEX);
+      Serial.print(dumpTmp[2], HEX);
+      Serial.print(dumpTmp[3], HEX);
+      Serial.print(dumpTmp[4], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0C, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0D, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0E, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x0F, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x10, dumpTmp, 5);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(dumpTmp[1], HEX);
+      Serial.print(dumpTmp[2], HEX);
+      Serial.print(dumpTmp[3], HEX);
+      Serial.print(dumpTmp[4], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x11, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x12, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x13, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x14, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x15, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x16, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x17, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x1C, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+      Serial.print(' ');
+      Mirf.readRegister(0x1D, dumpTmp, 1);
+      Serial.print(dumpTmp[0], HEX);
+          Serial.print("\x03");
+        }
+        break;
+      default:
+        readString += sch;
+        break;
+    }
+  }
+/*          if (readString.startsWith("GET /lightsens/")) {
             client.println("HTTP/1.1 200 OK");
             client.println("Content-Type: application/json");
             client.println("Connnection: close");
@@ -447,7 +715,7 @@ void loop()
     // close the connection:
     client.stop();
     //Serial.println("client disonnected");
-  }
+  }*/
   
   //I2C
   switch (wirestate) {
@@ -525,17 +793,17 @@ void loop()
   }
   
   //bel
-  if (!digitalRead(46)) {
-    digitalWrite(48, HIGH);
+  if (!digitalRead(45)) {
+    digitalWrite(46, HIGH);
     if (oldbel == false) {
-      if (client.connect(ipserver, 80)) {
-        client.println("GET /mb/bel.php?tring HTTP/1.0");
-        client.println();
-      }
+      //if (client.connect(ipserver, 80)) {
+        //client.println("GET /mb/bel.php?tring HTTP/1.0");
+        //client.println();
+      //}
     }
     oldbel = true;
   } else {
-    digitalWrite(48, LOW);
+    digitalWrite(45, LOW);
     oldbel = false;
   }
 
@@ -544,9 +812,8 @@ void loop()
   
   if(!Mirf.isSending() && Mirf.dataReady()){
     Mirf.getData(serialpacked.bytes);
-    //t2 = micros();
-    Serial.print("nRF receive cmd=");
-    Serial.println(serialpacked.cmd.cmd, HEX);
+    //Serial.print("nRF receive cmd=");
+    //Serial.println(serialpacked.cmd.cmd, HEX);
     switch (serialpacked.cmd.cmd) {
       case 1:
         nRF_ds_t = serialpacked.floatval.value;
@@ -590,13 +857,11 @@ void loop()
       Mirf.writeRegister(0x05, dumpTmp, 1);
       //Mirf.setTADDR((byte *)"clie2");
       Mirf.send(serialpacked.bytes);
-      //t1 = micros();
-      Serial.print("nRF transmit ");
-      Serial.println(sensid, DEC);
-      //Serial.println(" sent");
+      //Serial.print("nRF transmit ");
+      //Serial.println(sensid, DEC);
       
     } else {
-      Serial.println('isSending??');
+      //Serial.println('isSending??');
     }    
     SendTimer = millis();
   } 
