@@ -93,7 +93,12 @@ unsigned char sensid;
 float nRF_ds_t, nRF_bmp_t;
 unsigned long nRF_bmp_p;
 int nRF_dht_h, nRF_dht_t;
+boolean nRF_ds_t_valid;
+unsigned long nRF_ds_t_last;
+unsigned long last_time_not_too_cold;
+float t_setpoint;
 float MC_dE, MC_T1, MC_T2, MC_P, MC_F;
+//unsigned long MC_dE, MC_T1, MC_T2, MC_P, MC_F;
 unsigned long MCTimer, MCTimer2;
 char MCLine[92];
 unsigned char MCIndex;
@@ -102,7 +107,10 @@ unsigned long LastRxTimer;
 unsigned char dumpTmp[5];
 boolean forcenRFDump = true;
 volatile unsigned long WaterCounter;
-
+volatile unsigned long PowerCounter1, PowerCounter2, PowerCounter3, PowerCounter4;
+volatile unsigned long PowerdtTimer1, PowerdtTimer2, PowerdtTimer3, PowerdtTimer4;
+volatile unsigned long PowerTimer1Old, PowerTimer2Old, PowerTimer3Old, PowerTimer4Old;
+unsigned char OldPINB;
 
 void setup()
 {
@@ -113,14 +121,19 @@ void setup()
   pinMode(47, OUTPUT);
   pinMode(48, OUTPUT);
   pinMode(49, OUTPUT);
+
+  pinMode(10, INPUT);
+  pinMode(11, INPUT);
+  pinMode(12, INPUT);
+  pinMode(13, INPUT);
   
   pinMode(15, INPUT);     //set the pin to input
   digitalWrite(15, LOW); //use the internal pullup resistor
   cli();		// switch interrupts off while messing with their settings  
-  PCICR =0x04;          // Enable PCINT1 interrupt
-  PCMSK2 = 0b10000000;
+  PCICR =0x01;          // Enable PCINT1 interrupt
+  PCMSK0 = 0b11110000;
   sei();		// turn interrupts back on
-  
+  OldPINB = PINB;
   Wire.begin();
   Serial.begin(9600);
 
@@ -146,6 +159,9 @@ void setup()
   MCTimer2 = millis();
   LastRxTimer = millis();
   //doneDumping = true;
+  nRF_ds_t_valid = false;
+  t_setpoint = 12;
+  
 }
 
 /*void timercallback()
@@ -398,6 +414,95 @@ void loop()
             Serial.print("\x03");
           }
         }
+        if (readString.startsWith("GET /power/")) {
+          Serial.print("{\"f1\":");
+          cli();		// switch interrupts off while messing with their settings  
+          PCICR =0x00;          // Enable PCINT1 interrupt
+          sei();		// turn interrupts back on
+          Serial.print(PowerCounter1);  
+          Serial.print(",\"f2\":");  
+          Serial.print(PowerCounter2);  
+          Serial.print(",\"f3\":");  
+          Serial.print(PowerCounter3);  
+          Serial.print(",\"pv\":");  
+          Serial.print(PowerCounter4);  
+          Serial.print(",\"f1t\":");  
+          Serial.print(PowerdtTimer1);  
+          Serial.print(",\"f2t\":");  
+          Serial.print(PowerdtTimer2);  
+          Serial.print(",\"f3t\":");  
+          Serial.print(PowerdtTimer3);  
+          Serial.print(",\"pvt\":");  
+          Serial.print(PowerdtTimer4);  
+          cli();		// switch interrupts off while messing with their settings  
+          PCICR =0x01;          // Enable PCINT1 interrupt
+          sei();		// turn interrupts back on
+          Serial.print("}");
+          Serial.print("\x03");
+        }
+        if (readString.startsWith("SET /power/1/")) {
+          i = 13;
+          j = readString.indexOf('/', i);
+          if (j > -1) {
+            readString.substring(i, j - 1).toCharArray(ch, 10);
+            noInterrupts();
+            PowerCounter1 = atol(ch);
+            interrupts();
+            Serial.print("OK\x03");
+          }
+        }
+        if (readString.startsWith("SET /power/2/")) {
+          i = 13;
+          j = readString.indexOf('/', i);
+          if (j > -1) {
+            readString.substring(i, j - 1).toCharArray(ch, 10);
+            noInterrupts();
+            PowerCounter2 = atol(ch);
+            interrupts();
+            Serial.print("OK\x03");
+          }
+        }
+        if (readString.startsWith("SET /power/3/")) {
+          i = 13;
+          j = readString.indexOf('/', i);
+          if (j > -1) {
+            readString.substring(i, j - 1).toCharArray(ch, 10);
+            noInterrupts();
+            PowerCounter3 = atol(ch);
+            interrupts();
+            Serial.print("OK\x03");
+          }
+        }
+        if (readString.startsWith("SET /power/4/")) {
+          i = 13;
+          j = readString.indexOf('/', i);
+          if (j > -1) {
+            readString.substring(i, j - 1).toCharArray(ch, 10);
+            noInterrupts();
+            PowerCounter4 = atol(ch);
+            interrupts();
+            Serial.print("OK\x03");
+          }
+        }
+        if (readString.startsWith("SET /tsetpoint/")) {
+          i = 15;
+          j = readString.indexOf('/', i);
+          if (j > -1) {
+            readString.substring(i, j).toCharArray(ch, 10);
+            t_setpoint = atol(ch) / 10.0;
+            Serial.print("{\"ts\":");
+            Serial.print(t_setpoint);  
+            Serial.print("}");
+            Serial.print("\x03");
+          }
+        }
+        if (readString.startsWith("GET /tsetpoint/")) {
+          Serial.print("{\"ts\":");
+          Serial.print(t_setpoint);  
+          Serial.print("}");
+          Serial.print("\x03");
+        }
+
         if (readString.startsWith("GET /nrfdump/")) {
           Mirf.readRegister(0x00, dumpTmp, 1);
       Serial.print(dumpTmp[0], HEX);
@@ -496,226 +601,6 @@ void loop()
         break;
     }
   }
-/*          if (readString.startsWith("GET /lightsens/")) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json");
-            client.println("Connnection: close");
-            client.println();
-            client.print("{\"lightsens\":");
-            client.print(light);  
-            client.print(",\"avglight\":");
-            client.print(avglight);  
-            client.println("}");
-          }
-          if (readString.startsWith("GET /onewire/list/")) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json");
-            client.println("Connnection: close");
-            client.println();
-            while(ds.search(addr)) {
-              client.print("ROM =");
-              for( i = 0; i < 8; i++) {
-                client.write(' ');
-                client.print(addr[i], HEX);
-              }
-              client.println();
-            }
-          }
-          if (readString.startsWith("GET /tempsens/ ")) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json");
-            client.println("Connnection: close");
-            client.println();
-            client.print("{\"metering\":");
-            client.print(Sensor[0].Temperature);  
-            client.print(",\"outdoor\":");
-            client.print(Sensor[1].Temperature);  
-            client.print(",\"indoor_ds\":");
-            client.print(nRF_ds_t);  
-            client.print(",\"indoor_bmp\":");
-            client.print(nRF_bmp_t);  
-            client.print(",\"indoor_dht\":");
-            client.print(nRF_dht_t);  
-            client.println("}");
-          }
-          if (readString.startsWith("GET /presssens/ ")) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json");
-            client.println("Connnection: close");
-            client.println();
-            client.print("{\"indoor\":");
-            client.print(nRF_bmp_p);  
-            client.println("}");
-          }
-          if (readString.startsWith("GET /rhsens/ ")) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json");
-            client.println("Connnection: close");
-            client.println();
-            client.print("{\"indoor\":");
-            client.print(nRF_dht_h);  
-            client.println("}");
-          }
-          if (readString.startsWith("GET /cv/ ")) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json");
-            client.println("Connnection: close");
-            client.println();
-            client.print("{\"state\":");
-            client.print(digitalRead(42));
-            client.print(",\"warmte\":");
-            client.print(MC_dE);  
-            client.print(",\"T1\":");
-            client.print(MC_T1);  
-            client.print(",\"T2\":");
-            client.print(MC_T2);  
-            client.print(",\"Power\":");
-            client.print(MC_P);  
-            client.print(",\"Flow\":");
-            client.print(MC_F);  
-            client.println("}");
-          }
-          if (readString.startsWith("GET /water/ ")) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: application/json");
-            client.println("Connnection: close");
-            client.println();
-            client.print("{\"water\":");
-            noInterrupts();
-            client.print(WaterCounter / 10.0);  
-            interrupts();
-            client.println("}");
-          }
-          if (readString.startsWith("GET /water/set/")) {
-            i = 14;
-            j = readString.indexOf('/', i + 1);
-            if (j > -1) {
-              readString.substring(i + 1, j).toCharArray(ch, 10);
-              noInterrupts();
-              WaterCounter = atol(ch);
-              interrupts();
-                   
-              client.println("HTTP/1.1 200 OK");
-              client.println("Content-Type: text/html");
-              client.println("Connnection: close");
-              client.println();
-              client.print("{\"water\":");
-              noInterrupts();
-              client.print(WaterCounter / 10.0);  
-              interrupts();
-              client.println("}");
-            }
-          }
-          if (readString.startsWith("GET /nrfdump/")) {
-            Mirf.readRegister(0x00, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x01, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x02, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x03, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x04, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x05, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x06, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x07, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x08, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x09, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0A, dumpTmp, 5);
-      client.print(dumpTmp[0], HEX);
-      client.print(dumpTmp[1], HEX);
-      client.print(dumpTmp[2], HEX);
-      client.print(dumpTmp[3], HEX);
-      client.print(dumpTmp[4], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0B, dumpTmp, 5);
-      client.print(dumpTmp[0], HEX);
-      client.print(dumpTmp[1], HEX);
-      client.print(dumpTmp[2], HEX);
-      client.print(dumpTmp[3], HEX);
-      client.print(dumpTmp[4], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0C, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0D, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0E, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x0F, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x10, dumpTmp, 5);
-      client.print(dumpTmp[0], HEX);
-      client.print(dumpTmp[1], HEX);
-      client.print(dumpTmp[2], HEX);
-      client.print(dumpTmp[3], HEX);
-      client.print(dumpTmp[4], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x11, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x12, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x13, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x14, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x15, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x16, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x17, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x1C, dumpTmp, 1);
-      client.print(dumpTmp[0], HEX);
-      client.print(' ');
-      Mirf.readRegister(0x1D, dumpTmp, 1);
-      client.println(dumpTmp[0], HEX);
-          }
-          readString = "";
-          break;
-        }
-        if (c == '\n') {
-          // you're starting a new line
-          currentLineIsBlank = true;
-        } 
-        else if (c != '\r') {
-          // you've gotten a character on the current line
-          currentLineIsBlank = false;
-        }
-      }
-    }
-    // give the web browser time to receive the data
-    delay(1);
-    // close the connection:
-    client.stop();
-    //Serial.println("client disonnected");
-  }*/
   
   //I2C
   switch (wirestate) {
@@ -808,8 +693,6 @@ void loop()
   }
 
   //nRF
-  
-  
   if(!Mirf.isSending() && Mirf.dataReady()){
     Mirf.getData(serialpacked.bytes);
     //Serial.print("nRF receive cmd=");
@@ -817,6 +700,11 @@ void loop()
     switch (serialpacked.cmd.cmd) {
       case 1:
         nRF_ds_t = serialpacked.floatval.value;
+        nRF_ds_t_last = millis();
+        if (nRF_ds_t_valid == false) {
+          last_time_not_too_cold = millis();
+        }
+        nRF_ds_t_valid = true;
         //Serial.print("ds  t =  ");
         //Serial.print(serialpacked.floatval.value);
         break;
@@ -848,6 +736,10 @@ void loop()
 //    Serial.println(" us");
     
   }
+  if ((millis() - nRF_ds_t_last) > 30000) {
+    nRF_ds_t_valid = false;
+    digitalWrite(47, LOW);
+  }
   if((millis() - SendTimer) > 2000) {
     if(!Mirf.isSending()){
       sensid++;
@@ -866,7 +758,7 @@ void loop()
     SendTimer = millis();
   } 
   /*if ((millis() - LastRxTimer) > 2500) {
-    Serial.println("timeout, reinit");
+    //Serial.println("timeout, reinit");
     Mirf.init();
     Mirf.setRADDR((byte *)"clie1");
     Mirf.setTADDR((byte *)"clie2");
@@ -878,6 +770,7 @@ void loop()
   
   //stadsverwarmingding
   if((millis() - MCTimer) > 20000) {
+    
     Serial1.end();
     Serial1.begin(300);
     Serial1.println("/#1");
@@ -886,10 +779,6 @@ void loop()
     MCTimer = millis();
     MCIndex = 0;
   }
-  /*if((millis() - MCTimer2) > 1000) {
-    Serial.println(Serial1.available(), DEC);
-    MCTimer2 = millis();
-  }*/
   if (Serial1.available() > 0) {
     while (Serial1.available()) {
       MCLine[MCIndex++] = Serial1.read() & 0x7F;
@@ -899,31 +788,53 @@ void loop()
         if (MCLine[i] == 13) MCLine[i] == 0;
         if (MCLine[i] == 32) MCLine[i] == 0;
       }
+      // ~104 us without floats
+      // ~155 us with floats
       MC_dE = atol(&MCLine[2]) * 0.01;
       MC_T1 = atol(&MCLine[26]) * 0.01;
       MC_T2 = atol(&MCLine[34]) * 0.01;
       MC_P = atol(&MCLine[50]) * 0.1;
       MC_F = atol(&MCLine[58]) * 1.0;
-      
-      //Serial.println(MC_dE);
-      /*MC_dE = Serial1.parseFloat() / 1;
-      Serial1.parseFloat();
-      Serial1.parseFloat();
-      MC_T1 = Serial1.parseFloat() / 1;
-      MC_T2 = Serial1.parseFloat() / 1;
-      Serial1.parseFloat();
-      MC_P = Serial1.parseFloat() / 1;
-      MC_F = Serial1.parseFloat();
-      Serial1.parseFloat();*/
+    }
+  }
+  
+  if (nRF_ds_t_valid) {
+    if (nRF_ds_t < t_setpoint) {
+      if ((millis() - last_time_not_too_cold) > 60000) {
+        digitalWrite(47, HIGH);
+      }
+    } else {
+      last_time_not_too_cold = millis();
+      digitalWrite(47, LOW);
     }
   }
 }
 
-ISR(PCINT2_vect) {    // Interrupt service routine. Every single PCINT8..14 (=ADC0..5) change
-            // will generate an interrupt: but this will always be the same interrupt routine
-      Serial.print("pcint");
-  if (digitalRead(15)) {
-      Serial.print("pcint15");
-    WaterCounter++;
+//10 bruin pv
+//11 groen f3
+//12 geel  f1
+//13 grijs f2
+ISR(PCINT0_vect) { 
+  unsigned char dpb = (PINB ^ OldPINB) & PINB;
+  OldPINB = PINB;
+  if ((dpb & 0x10) == 0x10) {
+    PowerCounter4++;
+    PowerdtTimer4 = millis() - PowerTimer4Old;
+    PowerTimer4Old = millis();
+  }
+  if ((dpb & 0x20) == 0x20) {
+    PowerCounter3++;
+    PowerdtTimer3 = millis() - PowerTimer3Old;
+    PowerTimer3Old = millis();
+  }
+  if ((dpb & 0x40) == 0x40) {
+    PowerCounter1++;
+    PowerdtTimer1 = millis() - PowerTimer1Old;
+    PowerTimer1Old = millis();
+  }
+  if ((dpb & 0x80) == 0x80) {
+    PowerCounter2++;
+    PowerdtTimer2 = millis() - PowerTimer2Old;
+    PowerTimer2Old = millis();
   }
 }
