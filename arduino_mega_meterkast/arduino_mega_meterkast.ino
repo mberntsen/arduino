@@ -90,11 +90,13 @@ boolean isdark, oldisdark;
 boolean oldbel;
 unsigned long SendTimer;
 unsigned char sensid;
-float nRF_ds_t, nRF_bmp_t;
+float nRF_ds_t, nRF_bmp_t, nRF_ds2_t;
 unsigned long nRF_bmp_p;
 int nRF_dht_h, nRF_dht_t;
 boolean nRF_ds_t_valid;
+boolean nRF_ds2_t_valid;
 unsigned long nRF_ds_t_last;
+unsigned long nRF_ds2_t_last;
 unsigned long last_time_not_too_cold;
 float t_setpoint;
 float MC_dE, MC_T1, MC_T2, MC_P, MC_F;
@@ -106,11 +108,11 @@ boolean doneDumping = true;
 unsigned long LastRxTimer;
 unsigned char dumpTmp[5];
 boolean forcenRFDump = true;
-volatile unsigned long WaterCounter;
+volatile unsigned long WaterCounter, WaterdtTimer, WaterTimerOld;
 volatile unsigned long PowerCounter1, PowerCounter2, PowerCounter3, PowerCounter4;
 volatile unsigned long PowerdtTimer1, PowerdtTimer2, PowerdtTimer3, PowerdtTimer4;
 volatile unsigned long PowerTimer1Old, PowerTimer2Old, PowerTimer3Old, PowerTimer4Old;
-unsigned char OldPINB;
+unsigned char OldPINB, OldPINK;
 
 void setup()
 {
@@ -126,14 +128,17 @@ void setup()
   pinMode(11, INPUT);
   pinMode(12, INPUT);
   pinMode(13, INPUT);
+  pinMode(A8, INPUT);
   
   pinMode(15, INPUT);     //set the pin to input
   digitalWrite(15, LOW); //use the internal pullup resistor
   cli();		// switch interrupts off while messing with their settings  
-  PCICR =0x01;          // Enable PCINT1 interrupt
+  PCICR  = 0b00000101;          // Enable PCINT1 interrupt
   PCMSK0 = 0b11110000;
+  PCMSK2 = 0b00000001;
   sei();		// turn interrupts back on
   OldPINB = PINB;
+  OldPINK = PINK;
   Wire.begin();
   Serial.begin(9600);
 
@@ -261,6 +266,7 @@ void timercallback()
 }
 
 char sch;
+unsigned long tempLong;
 
 void loop()
 {
@@ -354,6 +360,8 @@ void loop()
           Serial.print(Sensor[1].Temperature);  
           Serial.print(",\"indoor_ds\":");
           Serial.print(nRF_ds_t);  
+          Serial.print(",\"indoor_ds2\":");
+          Serial.print(nRF_ds2_t);  
           Serial.print(",\"indoor_bmp\":");
           Serial.print(nRF_bmp_t);  
           Serial.print(",\"indoor_dht\":");
@@ -375,7 +383,9 @@ void loop()
         }
         if (readString.startsWith("GET /cv/")) {
           Serial.print("{\"state\":");
-          Serial.print(digitalRead(42));
+          Serial.print(digitalRead(47));
+          Serial.print(",\"ts\":");
+          Serial.print(t_setpoint);  
           Serial.print(",\"warmte\":");
           Serial.print(MC_dE);  
           Serial.print(",\"T1\":");
@@ -390,53 +400,72 @@ void loop()
           Serial.print("\x03");
         }
         if (readString.startsWith("GET /water/")) {
-          Serial.print("{\"water\":");
-          noInterrupts();
-          Serial.print(WaterCounter / 10.0);  
-          interrupts();
+          Serial.print("{\"w\":");
+          cli();
+          tempLong = WaterCounter;
+          sei();
+          Serial.print(tempLong);  
+          Serial.print(",\"wt\":");  
+          cli();
+          tempLong = WaterdtTimer;
+          sei();
+          Serial.print(tempLong);  
           Serial.print("}");
           Serial.print("\x03");
         }
         if (readString.startsWith("SET /water/")) {
-          i = 14;
-          j = readString.indexOf('/', i + 1);
+          i = 11;
+          j = readString.indexOf('/', i);
           if (j > -1) {
-            readString.substring(i + 1, j).toCharArray(ch, 10);
-            noInterrupts();
-            WaterCounter = atol(ch);
-            interrupts();
-                   
-            Serial.print("{\"water\":");
-            noInterrupts();
-            Serial.print(WaterCounter / 10.0);  
-            interrupts();
-            Serial.print("}");
-            Serial.print("\x03");
+            readString.substring(i, j).toCharArray(ch, 10);
+            tempLong = atol(ch);
+            cli();
+            WaterCounter = tempLong;
+            sei();
+            Serial.print("OK\x03");
           }
         }
         if (readString.startsWith("GET /power/")) {
           Serial.print("{\"f1\":");
-          cli();		// switch interrupts off while messing with their settings  
-          PCICR =0x00;          // Enable PCINT1 interrupt
-          sei();		// turn interrupts back on
-          Serial.print(PowerCounter1);  
+          cli();
+          tempLong = PowerCounter1;
+          sei();
+          Serial.print(tempLong);  
           Serial.print(",\"f2\":");  
-          Serial.print(PowerCounter2);  
+          cli();
+          tempLong = PowerCounter2;
+          sei();
+          Serial.print(tempLong);  
           Serial.print(",\"f3\":");  
-          Serial.print(PowerCounter3);  
+          cli();
+          tempLong = PowerCounter3;
+          sei();
+          Serial.print(tempLong);  
           Serial.print(",\"pv\":");  
-          Serial.print(PowerCounter4);  
+          cli();
+          tempLong = PowerCounter4;
+          sei();
+          Serial.print(tempLong);  
           Serial.print(",\"f1t\":");  
-          Serial.print(PowerdtTimer1);  
+          cli();
+          tempLong = PowerdtTimer1;
+          sei();
+          Serial.print(tempLong);  
           Serial.print(",\"f2t\":");  
-          Serial.print(PowerdtTimer2);  
+          cli();
+          tempLong = PowerdtTimer2;
+          sei();
+          Serial.print(tempLong);  
           Serial.print(",\"f3t\":");  
-          Serial.print(PowerdtTimer3);  
+          cli();
+          tempLong = PowerdtTimer3;
+          sei();
+          Serial.print(tempLong);  
           Serial.print(",\"pvt\":");  
-          Serial.print(PowerdtTimer4);  
-          cli();		// switch interrupts off while messing with their settings  
-          PCICR =0x01;          // Enable PCINT1 interrupt
-          sei();		// turn interrupts back on
+          cli();
+          tempLong = PowerdtTimer4;
+          sei();
+          Serial.print(tempLong);  
           Serial.print("}");
           Serial.print("\x03");
         }
@@ -444,10 +473,11 @@ void loop()
           i = 13;
           j = readString.indexOf('/', i);
           if (j > -1) {
-            readString.substring(i, j - 1).toCharArray(ch, 10);
-            noInterrupts();
-            PowerCounter1 = atol(ch);
-            interrupts();
+            readString.substring(i, j).toCharArray(ch, 10);
+            tempLong = atol(ch);
+            cli();
+            PowerCounter1 = tempLong;
+            sei();
             Serial.print("OK\x03");
           }
         }
@@ -455,10 +485,11 @@ void loop()
           i = 13;
           j = readString.indexOf('/', i);
           if (j > -1) {
-            readString.substring(i, j - 1).toCharArray(ch, 10);
-            noInterrupts();
-            PowerCounter2 = atol(ch);
-            interrupts();
+            readString.substring(i, j).toCharArray(ch, 10);
+            tempLong = atol(ch);
+            cli();
+            PowerCounter2 = tempLong;
+            sei();
             Serial.print("OK\x03");
           }
         }
@@ -466,10 +497,11 @@ void loop()
           i = 13;
           j = readString.indexOf('/', i);
           if (j > -1) {
-            readString.substring(i, j - 1).toCharArray(ch, 10);
-            noInterrupts();
-            PowerCounter3 = atol(ch);
-            interrupts();
+            readString.substring(i, j).toCharArray(ch, 10);
+            tempLong = atol(ch);
+            cli();
+            PowerCounter3 = tempLong;
+            sei();
             Serial.print("OK\x03");
           }
         }
@@ -477,10 +509,11 @@ void loop()
           i = 13;
           j = readString.indexOf('/', i);
           if (j > -1) {
-            readString.substring(i, j - 1).toCharArray(ch, 10);
-            noInterrupts();
-            PowerCounter4 = atol(ch);
-            interrupts();
+            readString.substring(i, j).toCharArray(ch, 10);
+            tempLong = atol(ch);
+            cli();
+            PowerCounter4 = tempLong;
+            sei();
             Serial.print("OK\x03");
           }
         }
@@ -728,6 +761,13 @@ void loop()
         //Serial.print("dht t =  ");
         //Serial.print(serialpacked.intval.value);
         break;
+      case 6:
+        nRF_ds2_t = serialpacked.floatval.value;
+        nRF_ds2_t_last = millis();
+        nRF_ds2_t_valid = true;
+        //Serial.print("ds2  t =  ");
+        //Serial.print(serialpacked.floatval.value);
+        break;
     }
     LastRxTimer = millis();
     doneDumping = false;
@@ -740,10 +780,10 @@ void loop()
     nRF_ds_t_valid = false;
     digitalWrite(47, LOW);
   }
-  if((millis() - SendTimer) > 2000) {
+  if((millis() - SendTimer) > 1000) {
     if(!Mirf.isSending()){
       sensid++;
-      if (sensid > 4) sensid = 0;
+      if (sensid > 5) sensid = 0;
       serialpacked.cmd.cmd = sensid + 1;
       dumpTmp[0] = 1;
       Mirf.writeRegister(0x05, dumpTmp, 1);
@@ -800,9 +840,11 @@ void loop()
   
   if (nRF_ds_t_valid) {
     if (nRF_ds_t < t_setpoint) {
-      if ((millis() - last_time_not_too_cold) > 60000) {
-        digitalWrite(47, HIGH);
-      }
+      //if (nRF_ds2_t_valid) {
+        if ((millis() - last_time_not_too_cold) > 60000) {
+          digitalWrite(47, HIGH);
+        }
+      //}
     } else {
       last_time_not_too_cold = millis();
       digitalWrite(47, LOW);
@@ -837,4 +879,17 @@ ISR(PCINT0_vect) {
     PowerdtTimer2 = millis() - PowerTimer2Old;
     PowerTimer2Old = millis();
   }
+}
+
+ISR(PCINT2_vect) {
+  unsigned char dpk = (PINK ^ OldPINK);
+  OldPINK = PINK;
+  //Serial.print(dpk, HEX);
+  if ((dpk & 0x01) == 0x01) {
+    WaterCounter++;
+    WaterdtTimer = millis() - WaterTimerOld;
+    WaterTimerOld = millis();
+    //Serial.print(dpk, HEX);
+  }
+  
 }
