@@ -51,8 +51,12 @@ typedef struct {
 } Sensor_t;
 
 Sensor_t Sensor[2] ={
-  {{0x28, 0x71, 0x39, 0xEA, 0x03, 0x00, 0x00, 0x70},{0,0,0,0,0,0,0,0,0,0},}  // Outside
+  {{0x28, 0x71, 0x39, 0xEA, 0x03, 0x00, 0x00, 0x70},{0,0,0,0,0,0,0,0,0,0}, 0.0f},
+  {{0x28, 0x57, 0x02, 0xEA, 0x03, 0x00, 0x00, 0x80},{0,0,0,0,0,0,0,0,0,0}, 0.0f}  // Outside
 };
+/*Sensor_t Sensor[2] ={
+  {{0x28, 0x71, 0x39, 0xEA, 0x03, 0x00, 0x00, 0x70},{0,0,0,0,0,0,0,0,0,0},}  // Outside
+};*/
 
 OneWire  ds(5);
 Adafruit_BMP085 bmp;
@@ -98,7 +102,7 @@ void loop(){
   if(!Mirf.isSending() && Mirf.dataReady()){
   //if(Mirf.dataReady()){
     Mirf.getData(serialpacked.bytes);
-    //Serial.print("package! cmd=");
+    //Serial.print("cmd=");
     //Serial.println(serialpacked.cmd.cmd, HEX);
     switch (serialpacked.cmd.cmd) {
       case 1:
@@ -136,6 +140,14 @@ void loop(){
         Mirf.setTADDR((byte *)"clie1");
         Mirf.send(serialpacked.bytes);
         break;
+      case 6:
+        serialpacked.floatval.cmd = 6;
+        serialpacked.floatval.value = Sensor[1].Temperature;
+        Mirf.setTADDR((byte *)"clie1");
+        Mirf.send(serialpacked.bytes);
+        //Serial.println("temperature sent");
+        break;
+      
     }
   }
   //onewire
@@ -149,7 +161,7 @@ void loop(){
     break;
   case 1:
     if((millis() - DSTimer) >= 1000){
-      for(i = 0; i < 1; i++){
+      for(i = 0; i < 2; i++){
         ds.reset();
         ds.select(Sensor[i].Addr);    
         ds.write(0xBE);             // Read Scratchpad
@@ -162,11 +174,11 @@ void loop(){
           Sensor[i].Temperature += (float)Sensor[i].RawBuffer[j];
         }
         Sensor[i].Temperature /= 160;  // Origineel: Sensor[i].Temperature = ((float)raw / 16.0);
+//        Serial.print("measured=");
+//        Serial.println(Sensor[i].Temperature);
       }
       if(++RawIndex > 9) RawIndex = 0;
       DSState = 0;
-      //Serial.print("measured=");
-      //Serial.println(Sensor[0].Temperature);
     }
     break;
   }
