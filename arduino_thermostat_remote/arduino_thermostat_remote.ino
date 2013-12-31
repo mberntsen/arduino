@@ -23,7 +23,7 @@
 #include <OneWire.h>
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
-#include <dht11.h>
+#include <dht22.h>
 
 union packed {
   struct test {
@@ -60,14 +60,14 @@ Sensor_t Sensor[2] ={
 
 OneWire  ds(5);
 Adafruit_BMP085 bmp;
-dht11 DHT11;
+dht22 DHT22;
 
-#define DHT11PIN 4
+#define DHT22PIN 4
 
 byte RawIndex = 0;
 unsigned int DSState;
 unsigned long DSTimer;
-unsigned long dht11Timer;
+unsigned long dht22Timer;
 byte addr[8];
 byte data[12];
 int i, j;
@@ -93,7 +93,7 @@ void setup(){
   if (!bmp.begin()) {
     Serial.println("Could not find a valid BMP085 sensor, check wiring!");
   }
-  dht11Timer = millis();
+  dht22Timer = millis();
 }
 
 void loop(){
@@ -128,15 +128,15 @@ void loop(){
         break;
       case 4:
         //Serial.print(bmp.readTemperature());
-        serialpacked.intval.cmd = 4;
-        serialpacked.intval.value = DHT11.humidity;
+        serialpacked.floatval.cmd = 4;
+        serialpacked.floatval.value = DHT22.humidity;
         Mirf.setTADDR((byte *)"clie1");
         Mirf.send(serialpacked.bytes);
         break;
       case 5:
         //Serial.print(bmp.readTemperature());
-        serialpacked.intval.cmd = 5;
-        serialpacked.intval.value = DHT11.temperature;
+        serialpacked.floatval.cmd = 5;
+        serialpacked.floatval.value = DHT22.temperature;
         Mirf.setTADDR((byte *)"clie1");
         Mirf.send(serialpacked.bytes);
         break;
@@ -183,11 +183,11 @@ void loop(){
     break;
   }
   //dht11
-  if ((millis() - dht11Timer) >= 1000) {
-    dht11Timer = millis();
-    int chk = DHT11.read(DHT11PIN);
+  if ((millis() - dht22Timer) >= 1000) {
+    dht22Timer = millis();
+    int chk = DHT22.read(DHT22PIN);
 
-    /*Serial.print("Read sensor: ");
+/*    Serial.print("Read sensor: ");
     switch (chk)
     {
       case DHTLIB_OK: 
@@ -202,12 +202,12 @@ void loop(){
       default: 
                   Serial.println("Unknown error"); 
                   break;
-    }*/
+    }
   
-    //Serial.print("Humidity (%): ");
-    //Serial.println(DHT11.humidity);
+    Serial.print("Humidity (%): ");
+    Serial.println(DHT22.humidity);
   
-    //Serial.print("Temperature (oC): ");
-    //Serial.println(DHT11.temperature);
+    Serial.print("Temperature (oC): ");
+    Serial.println(DHT22.temperature);*/
   }
 }
