@@ -113,6 +113,7 @@ volatile unsigned long PowerCounter1, PowerCounter2, PowerCounter3, PowerCounter
 volatile unsigned long PowerdtTimer1, PowerdtTimer2, PowerdtTimer3, PowerdtTimer4;
 volatile unsigned long PowerTimer1Old, PowerTimer2Old, PowerTimer3Old, PowerTimer4Old;
 unsigned char OldPINB, OldPINK;
+volatile unsigned char i2CSync, oneWireSync, nRFSync, cvSync, power1Sync, power2Sync, power3Sync, power4Sync, waterSync;
 
 void setup()
 {
@@ -268,7 +269,7 @@ void timercallback()
 }
 
 char sch;
-unsigned long tempLong;
+unsigned long tempLong, tempLong2;
 
 void loop()
 {
@@ -283,6 +284,17 @@ void loop()
         break;
       case 3:
         //Serial3.println(readString);
+        if (readString.startsWith("sync")) {
+          i2CSync = 1;
+          oneWireSync = 1;
+          nRFSync = 1;
+          cvSync = 1;
+          power1Sync = 1;
+          power2Sync = 1;
+          power3Sync = 1;
+          power4Sync = 1;
+          waterSync = 1;
+        }
         if (readString.startsWith("GET /send433/")) {
           if (statemachine == 0) {
             if (readString.length() >= 30) {
@@ -684,13 +696,19 @@ void loop()
   //onewire
   switch (DSState){
   case 0:
+    if (oneWireSync) {
+      DSState = 1;
+      oneWireSync = 0;
+    }
+    break;
+  case 1:
     ds.reset();
     ds.write(0xCC);         // skip ROM
     ds.write(0x44);         // start conversion
     DSTimer = millis();
-    DSState++;
+    DSState = 2;
     break;
-  case 1:
+  case 2:
     if((millis() - DSTimer) >= 1000){
       for(i = 0; i < 2; i++){
         ds.reset();
@@ -699,14 +717,20 @@ void loop()
         for(j = 0; j < 2; j++) {    // we need 9 bytes
           data[j] = ds.read();
         }
-        Sensor[i].RawBuffer[RawIndex] = (data[1] << 8) | data[0];
-        Sensor[i].Temperature = 0;
-        for(j = 0; j < 10; j++) {    // Gemiddelde berekenen
-          Sensor[i].Temperature += (float)Sensor[i].RawBuffer[j];
-        }
-        Sensor[i].Temperature /= 160;  // Origineel: Sensor[i].Temperature = ((float)raw / 16.0);
+        //Sensor[i].RawBuffer[RawIndex] = (data[1] << 8) | data[0];
+        //Sensor[i].Temperature = 0;
+        //for(j = 0; j < 10; j++) {    // Gemiddelde berekenen
+        //  Sensor[i].Temperature += (float)Sensor[i].RawBuffer[j];
+        //}
+        //Sensor[i].Temperature /= 160;  // Origineel: Sensor[i].Temperature = ((float)raw / 16.0);
+        Sensor[i].Temperature = ((data[1] << 8) | data[0]) / 16;
       }
-      if(++RawIndex > 9) RawIndex = 0;
+      Serial3.print("\x02""aa:");
+      Serial3.print(Sensor[0].Temperature);  
+      Serial3.print(";ab:");
+      Serial3.print(Sensor[1].Temperature);  
+      Serial3.print("\x03");  
+      //if(++RawIndex > 9) RawIndex = 0;
       DSState = 0;
     }
     break;
@@ -716,14 +740,14 @@ void loop()
   if (!digitalRead(45)) {
     digitalWrite(46, HIGH);
     if (oldbel == false) {
-      //if (client.connect(ipserver, 80)) {
-        //client.println("GET /mb/bel.php?tring HTTP/1.0");
-        //client.println();
-      //}
+      Serial3.print("\x02""ba:1\x03");
     }
     oldbel = true;
   } else {
     digitalWrite(45, LOW);
+    if (oldbel == true) {
+      Serial3.print("\x02""ba:0\x03");
+    }
     oldbel = false;
   }
 
@@ -740,49 +764,63 @@ void loop()
           last_time_not_too_cold = millis();
         }
         nRF_ds_t_valid = true;
-        //Serial3.print("ds  t =  ");
-        //Serial3.print(serialpacked.floatval.value);
+        Serial3.print("\x02""ac:");
+        Serial3.print(nRF_ds_t);  
+        Serial3.print("\x03");  
         break;
       case 2:
         nRF_bmp_p = serialpacked.int32val.value;
-        //Serial3.print("bmp p = ");
-        //Serial3.print(serialpacked.int32val.value);
+        Serial3.print("\x02""ca:");
+        Serial3.print(nRF_bmp_p);  
+        Serial3.print("\x03");  
         break;
       case 3:
         nRF_bmp_t = serialpacked.floatval.value;
-        //Serial3.print("bmp t =  ");
-        //Serial3.print(serialpacked.floatval.value);
+        Serial3.print("\x02""ad:");
+        Serial3.print(nRF_bmp_t);  
+        Serial3.print("\x03");  
         break;
       case 4:
         nRF_dht_h = serialpacked.floatval.value;
-        //Serial3.print("dht h =  ");
-        //Serial3.print(serialpacked.intval.value);
+        Serial3.print("\x02""da:");
+        Serial3.print(nRF_dht_h);  
+        Serial3.print("\x03");  
         break;
       case 5:
         nRF_dht_t = serialpacked.floatval.value;
-        //Serial3.print("dht t =  ");
-        //Serial3.print(serialpacked.intval.value);
+        Serial3.print("\x02""ae:");
+        Serial3.print(nRF_dht_t);  
+        Serial3.print("\x03");  
         break;
       case 6:
         nRF_ds2_t = serialpacked.floatval.value;
         nRF_ds2_t_last = millis();
         nRF_ds2_t_valid = true;
-        //Serial3.print("ds2  t =  ");
-        //Serial3.print(serialpacked.floatval.value);
+        Serial3.print("\x02""af:");
+        Serial3.print(nRF_ds2_t);  
+        Serial3.print("\x03");  
         break;
     }
     LastRxTimer = millis();
     doneDumping = false;
-//    Serial3.print(" | dt = ");
-//    Serial3.print(t2 - t1);
-//    Serial3.println(" us");
-    
   }
-  if ((millis() - nRF_ds_t_last) > 30000) {
+  if ((millis() - nRF_ds_t_last) > 80000) {
     nRF_ds_t_valid = false;
     digitalWrite(47, LOW);
   }
-  if((millis() - SendTimer) > 1000) {
+  if (nRFSync) {
+    if(!Mirf.isSending()){
+      serialpacked.cmd.cmd = 0;
+      dumpTmp[0] = 1;
+      Mirf.writeRegister(0x05, dumpTmp, 1);
+      Mirf.send(serialpacked.bytes);
+      SendTimer = millis();
+      nRFSync = 0;
+    } else {
+      //Serial3.println('isSending??');
+    }    
+  }
+  /*if((millis() - SendTimer) > 1000) {
     if(!Mirf.isSending()){
       sensid++;
       if (sensid > 5) sensid = 0;
@@ -798,7 +836,7 @@ void loop()
       //Serial3.println('isSending??');
     }    
     SendTimer = millis();
-  } 
+  } */
   /*if ((millis() - LastRxTimer) > 2500) {
     //Serial3.println("timeout, reinit");
     Mirf.init();
@@ -811,8 +849,8 @@ void loop()
   
   
   //stadsverwarmingding
-  if((millis() - MCTimer) > 20000) {
-    
+  //if((millis() - MCTimer) > 20000) {
+  if (cvSync) {  
     Serial1.end();
     Serial1.begin(300);
     Serial1.println("/#1");
@@ -820,6 +858,7 @@ void loop()
     Serial1.begin(1200);
     MCTimer = millis();
     MCIndex = 0;
+    cvSync = 0;
   }
   if (Serial1.available() > 0) {
     while (Serial1.available()) {
@@ -837,6 +876,21 @@ void loop()
       MC_T2 = atol(&MCLine[34]) * 0.01;
       MC_P = atol(&MCLine[50]) * 0.1;
       MC_F = atol(&MCLine[58]) * 1.0;
+      Serial3.print("\x02""bb:");
+      Serial3.print(digitalRead(47));
+      Serial3.print(";ag:");
+      Serial3.print(t_setpoint);  
+      Serial3.print(";ea:");
+      Serial3.print(MC_dE);  
+      Serial3.print(";ah:");
+      Serial3.print(MC_T1);  
+      Serial3.print(";ai:");
+      Serial3.print(MC_T2);  
+      Serial3.print(";fa:");
+      Serial3.print(MC_P);  
+      Serial3.print(";ga:");
+      Serial3.print(MC_F);  
+      Serial3.print("\x03");
     }
   }
   
@@ -852,6 +906,71 @@ void loop()
       digitalWrite(47, LOW);
     }
   }
+  
+  if (power1Sync) {
+    power1Sync = 0;
+    Serial3.print("\x02""ia:");
+    cli();
+    tempLong = PowerCounter1;
+    tempLong2 = PowerdtTimer1;
+    sei();
+    Serial3.print(tempLong); 
+    Serial3.print(";ha:");
+    Serial3.print(tempLong2);  
+    Serial3.print("\x03");
+  }
+  
+  if (power2Sync) {
+    power2Sync = 0;
+    Serial3.print("\x02""ib:");
+    cli();
+    tempLong = PowerCounter2;
+    tempLong2 = PowerdtTimer2;
+    sei();
+    Serial3.print(tempLong); 
+    Serial3.print(";hb:");
+    Serial3.print(tempLong2);  
+    Serial3.print("\x03");
+  }
+  
+  if (power3Sync) {
+    power3Sync = 0;
+    Serial3.print("\x02""ic:");
+    cli();
+    tempLong = PowerCounter3;
+    tempLong2 = PowerdtTimer3;
+    sei();
+    Serial3.print(tempLong); 
+    Serial3.print(";hc:");
+    Serial3.print(tempLong2);  
+    Serial3.print("\x03");
+  }
+  
+  if (power4Sync) {
+    power4Sync = 0;
+    Serial3.print("\x02""id:");
+    cli();
+    tempLong = PowerCounter4;
+    tempLong2 = PowerdtTimer4;
+    sei();
+    Serial3.print(tempLong); 
+    Serial3.print(";hd:");
+    Serial3.print(tempLong2);  
+    Serial3.print("\x03");
+  }
+  
+  if (waterSync) {
+    waterSync = 0;
+    Serial3.print("\x02""je:");
+    cli();
+    tempLong = WaterCounter;
+    tempLong = WaterdtTimer;
+    sei();
+    Serial3.print(tempLong); 
+    Serial3.print(";he:");
+    Serial3.print(tempLong2);  
+    Serial3.print("\x03");
+  }
 }
 
 //10 bruin pv
@@ -865,21 +984,25 @@ ISR(PCINT0_vect) {
     PowerCounter4++;
     PowerdtTimer4 = millis() - PowerTimer4Old;
     PowerTimer4Old = millis();
+    power4Sync = 1;
   }
   if ((dpb & 0x20) == 0x20) {
     PowerCounter3++;
     PowerdtTimer3 = millis() - PowerTimer3Old;
     PowerTimer3Old = millis();
+    power3Sync = 1;
   }
   if ((dpb & 0x40) == 0x40) {
     PowerCounter1++;
     PowerdtTimer1 = millis() - PowerTimer1Old;
     PowerTimer1Old = millis();
+    power1Sync = 1;
   }
   if ((dpb & 0x80) == 0x80) {
     PowerCounter2++;
     PowerdtTimer2 = millis() - PowerTimer2Old;
     PowerTimer2Old = millis();
+    power2Sync = 1;
   }
 }
 
@@ -891,7 +1014,7 @@ ISR(PCINT2_vect) {
     WaterCounter++;
     WaterdtTimer = millis() - WaterTimerOld;
     WaterTimerOld = millis();
+    waterSync = 1;
     //Serial3.print(dpk, HEX);
-  }
-  
+  } 
 }
