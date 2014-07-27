@@ -23,7 +23,7 @@
 #include <OneWire.h>
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
-#include <dht11.h>
+#include <dht22.h>
 
 union packed {
   struct test {
@@ -51,19 +51,23 @@ typedef struct {
 } Sensor_t;
 
 Sensor_t Sensor[2] ={
-  {{0x28, 0x71, 0x39, 0xEA, 0x03, 0x00, 0x00, 0x70},{0,0,0,0,0,0,0,0,0,0},}  // Outside
+  {{0x28, 0x71, 0x39, 0xEA, 0x03, 0x00, 0x00, 0x70},{0,0,0,0,0,0,0,0,0,0}, 0.0f},
+  {{0x28, 0x57, 0x02, 0xEA, 0x03, 0x00, 0x00, 0x80},{0,0,0,0,0,0,0,0,0,0}, 0.0f}  // Outside
 };
+/*Sensor_t Sensor[2] ={
+  {{0x28, 0x71, 0x39, 0xEA, 0x03, 0x00, 0x00, 0x70},{0,0,0,0,0,0,0,0,0,0},}  // Outside
+};*/
 
 OneWire  ds(5);
 Adafruit_BMP085 bmp;
-dht11 DHT11;
+dht22 DHT22;
 
-#define DHT11PIN 4
+#define DHT22PIN 4
 
 byte RawIndex = 0;
 unsigned int DSState;
 unsigned long DSTimer;
-unsigned long dht11Timer;
+unsigned long dht22Timer;
 byte addr[8];
 byte data[12];
 int i, j;
@@ -89,7 +93,7 @@ void setup(){
   if (!bmp.begin()) {
     Serial.println("Could not find a valid BMP085 sensor, check wiring!");
   }
-  dht11Timer = millis();
+  dht22Timer = millis();
 }
 
 void loop(){
@@ -98,7 +102,7 @@ void loop(){
   if(!Mirf.isSending() && Mirf.dataReady()){
   //if(Mirf.dataReady()){
     Mirf.getData(serialpacked.bytes);
-    //Serial.print("package! cmd=");
+    //Serial.print("cmd=");
     //Serial.println(serialpacked.cmd.cmd, HEX);
     switch (serialpacked.cmd.cmd) {
       case 1:
@@ -124,18 +128,26 @@ void loop(){
         break;
       case 4:
         //Serial.print(bmp.readTemperature());
-        serialpacked.intval.cmd = 4;
-        serialpacked.intval.value = DHT11.humidity;
+        serialpacked.floatval.cmd = 4;
+        serialpacked.floatval.value = DHT22.humidity;
         Mirf.setTADDR((byte *)"clie1");
         Mirf.send(serialpacked.bytes);
         break;
       case 5:
         //Serial.print(bmp.readTemperature());
-        serialpacked.intval.cmd = 5;
-        serialpacked.intval.value = DHT11.temperature;
+        serialpacked.floatval.cmd = 5;
+        serialpacked.floatval.value = DHT22.temperature;
         Mirf.setTADDR((byte *)"clie1");
         Mirf.send(serialpacked.bytes);
         break;
+      case 6:
+        serialpacked.floatval.cmd = 6;
+        serialpacked.floatval.value = Sensor[1].Temperature;
+        Mirf.setTADDR((byte *)"clie1");
+        Mirf.send(serialpacked.bytes);
+        //Serial.println("temperature sent");
+        break;
+      
     }
   }
   //onewire
@@ -149,7 +161,7 @@ void loop(){
     break;
   case 1:
     if((millis() - DSTimer) >= 1000){
-      for(i = 0; i < 1; i++){
+      for(i = 0; i < 2; i++){
         ds.reset();
         ds.select(Sensor[i].Addr);    
         ds.write(0xBE);             // Read Scratchpad
@@ -162,20 +174,20 @@ void loop(){
           Sensor[i].Temperature += (float)Sensor[i].RawBuffer[j];
         }
         Sensor[i].Temperature /= 160;  // Origineel: Sensor[i].Temperature = ((float)raw / 16.0);
+//        Serial.print("measured=");
+//        Serial.println(Sensor[i].Temperature);
       }
       if(++RawIndex > 9) RawIndex = 0;
       DSState = 0;
-      //Serial.print("measured=");
-      //Serial.println(Sensor[0].Temperature);
     }
     break;
   }
   //dht11
-  if ((millis() - dht11Timer) >= 1000) {
-    dht11Timer = millis();
-    int chk = DHT11.read(DHT11PIN);
+  if ((millis() - dht22Timer) >= 1000) {
+    dht22Timer = millis();
+    int chk = DHT22.read(DHT22PIN);
 
-    /*Serial.print("Read sensor: ");
+/*    Serial.print("Read sensor: ");
     switch (chk)
     {
       case DHTLIB_OK: 
@@ -190,12 +202,12 @@ void loop(){
       default: 
                   Serial.println("Unknown error"); 
                   break;
-    }*/
+    }
   
-    //Serial.print("Humidity (%): ");
-    //Serial.println(DHT11.humidity);
+    Serial.print("Humidity (%): ");
+    Serial.println(DHT22.humidity);
   
-    //Serial.print("Temperature (oC): ");
-    //Serial.println(DHT11.temperature);
+    Serial.print("Temperature (oC): ");
+    Serial.println(DHT22.temperature);*/
   }
 }
