@@ -92,7 +92,7 @@ unsigned long SendTimer;
 unsigned char sensid;
 float nRF_ds_t, nRF_bmp_t, nRF_ds2_t;
 unsigned long nRF_bmp_p;
-int nRF_dht_h, nRF_dht_t;
+float nRF_dht_h, nRF_dht_t;
 boolean nRF_ds_t_valid;
 boolean nRF_ds2_t_valid;
 unsigned long nRF_ds_t_last;
@@ -140,7 +140,9 @@ void setup()
   OldPINB = PINB;
   OldPINK = PINK;
   Wire.begin();
-  Serial.begin(9600);
+  //Serial.begin(9600);
+
+  Serial3.begin(115200);
 
   Mirf.spi = &MirfHardwareSpi;
 //  Mirf.cePin = 44;
@@ -153,8 +155,8 @@ void setup()
   
   //Ethernet.begin(mac, ip);
   //server.begin();
-  //Serial.print("server is at ");
-  //Serial.println(Ethernet.localIP());
+  //Serial3.print("server is at ");
+  //Serial3.println(Ethernet.localIP());
 
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timercallback);
@@ -270,17 +272,17 @@ unsigned long tempLong;
 
 void loop()
 {
-  //Serial.println(Serial.available());
+  //Serial3.println(Serial3.available());
   
-  while (Serial.available()) {
-    sch = Serial.read();
-    //Serial.print(sch);
+  while (Serial3.available()) {
+    sch = Serial3.read();
+    //Serial3.print(sch);
     switch (sch) {
       case 2:
         readString = "";
         break;
       case 3:
-        //Serial.println(readString);
+        //Serial3.println(readString);
         if (readString.startsWith("GET /send433/")) {
           if (statemachine == 0) {
             if (readString.length() >= 30) {
@@ -321,97 +323,97 @@ void loop()
                 if (i % 2 == 0) code433[i >> 1] <<= 4;
               } 
               /*for (i = 0; i < 16; i++)
-                Serial.print(ch[i], HEX);
-              Serial.print(' ');
+                Serial3.print(ch[i], HEX);
+              Serial3.print(' ');
               for (i = 0; i < 8; i++) {
-                //Serial.print(aan1[i], HEX);
-                Serial.print(code433[i], HEX);
+                //Serial3.print(aan1[i], HEX);
+                Serial3.print(code433[i], HEX);
               }*/             
               cod = code433;
               statemachine = 1;
-              Serial.print("OK\x03");
+              Serial3.print("OK\x03");
             } 
-              Serial.print("invalid code\x03");
+              Serial3.print("invalid code\x03");
           } else
-            Serial.print("busy\x03");
+            Serial3.print("busy\x03");
         }
         if (readString.startsWith("GET /lightsens/")) {
-          Serial.print("{\"lightsens\":");
-          Serial.print(light);  
-          Serial.print(",\"avglight\":");
-          Serial.print(avglight);  
-          Serial.print("}");
-          Serial.print("\x03");
+          Serial3.print("{\"lightsens\":");
+          Serial3.print(light);  
+          Serial3.print(",\"avglight\":");
+          Serial3.print(avglight);  
+          Serial3.print("}");
+          Serial3.print("\x03");
         }
         if (readString.startsWith("GET /onewire/list/")) {
           while(ds.search(addr)) {
-            Serial.print("ROM =");
+            Serial3.print("ROM =");
             for( i = 0; i < 8; i++) {
-              Serial.write(' ');
-              Serial.print(addr[i], HEX);
+              Serial3.write(' ');
+              Serial3.print(addr[i], HEX);
             }
-          Serial.print("\x03");
+          Serial3.print("\x03");
           }
         }
         if (readString.startsWith("GET /tempsens/")) {
-          Serial.print("{\"metering\":");
-          Serial.print(Sensor[0].Temperature);  
-          Serial.print(",\"outdoor\":");
-          Serial.print(Sensor[1].Temperature);  
-          Serial.print(",\"indoor_ds\":");
-          Serial.print(nRF_ds_t);  
-          Serial.print(",\"indoor_ds2\":");
-          Serial.print(nRF_ds2_t);  
-          Serial.print(",\"indoor_bmp\":");
-          Serial.print(nRF_bmp_t);  
-          Serial.print(",\"indoor_dht\":");
-          Serial.print(nRF_dht_t);  
-          Serial.print("}");
-          Serial.print("\x03");
+          Serial3.print("{\"metering\":");
+          Serial3.print(Sensor[0].Temperature);  
+          Serial3.print(",\"outdoor\":");
+          Serial3.print(Sensor[1].Temperature);  
+          Serial3.print(",\"indoor_ds\":");
+          Serial3.print(nRF_ds_t);  
+          Serial3.print(",\"indoor_ds2\":");
+          Serial3.print(nRF_ds2_t);  
+          Serial3.print(",\"indoor_bmp\":");
+          Serial3.print(nRF_bmp_t);  
+          Serial3.print(",\"indoor_dht\":");
+          Serial3.print(nRF_dht_t);  
+          Serial3.print("}");
+          Serial3.print("\x03");
         }
         if (readString.startsWith("GET /presssens/")) {
-          Serial.print("{\"indoor\":");
-          Serial.print(nRF_bmp_p);  
-          Serial.print("}");
-          Serial.print("\x03");
+          Serial3.print("{\"indoor\":");
+          Serial3.print(nRF_bmp_p);  
+          Serial3.print("}");
+          Serial3.print("\x03");
         }
         if (readString.startsWith("GET /rhsens/")) {
-          Serial.print("{\"indoor\":");
-          Serial.print(nRF_dht_h);  
-          Serial.print("}");
-          Serial.print("\x03");
+          Serial3.print("{\"indoor\":");
+          Serial3.print(nRF_dht_h);  
+          Serial3.print("}");
+          Serial3.print("\x03");
         }
         if (readString.startsWith("GET /cv/")) {
-          Serial.print("{\"state\":");
-          Serial.print(digitalRead(47));
-          Serial.print(",\"ts\":");
-          Serial.print(t_setpoint);  
-          Serial.print(",\"warmte\":");
-          Serial.print(MC_dE);  
-          Serial.print(",\"T1\":");
-          Serial.print(MC_T1);  
-          Serial.print(",\"T2\":");
-          Serial.print(MC_T2);  
-          Serial.print(",\"Power\":");
-          Serial.print(MC_P);  
-          Serial.print(",\"Flow\":");
-          Serial.print(MC_F);  
-          Serial.print("}");
-          Serial.print("\x03");
+          Serial3.print("{\"state\":");
+          Serial3.print(digitalRead(47));
+          Serial3.print(",\"ts\":");
+          Serial3.print(t_setpoint);  
+          Serial3.print(",\"warmte\":");
+          Serial3.print(MC_dE);  
+          Serial3.print(",\"T1\":");
+          Serial3.print(MC_T1);  
+          Serial3.print(",\"T2\":");
+          Serial3.print(MC_T2);  
+          Serial3.print(",\"Power\":");
+          Serial3.print(MC_P);  
+          Serial3.print(",\"Flow\":");
+          Serial3.print(MC_F);  
+          Serial3.print("}");
+          Serial3.print("\x03");
         }
         if (readString.startsWith("GET /water/")) {
-          Serial.print("{\"w\":");
+          Serial3.print("{\"w\":");
           cli();
           tempLong = WaterCounter;
           sei();
-          Serial.print(tempLong);  
-          Serial.print(",\"wt\":");  
+          Serial3.print(tempLong);  
+          Serial3.print(",\"wt\":");  
           cli();
           tempLong = WaterdtTimer;
           sei();
-          Serial.print(tempLong);  
-          Serial.print("}");
-          Serial.print("\x03");
+          Serial3.print(tempLong);  
+          Serial3.print("}");
+          Serial3.print("\x03");
         }
         if (readString.startsWith("SET /water/")) {
           i = 11;
@@ -422,52 +424,52 @@ void loop()
             cli();
             WaterCounter = tempLong;
             sei();
-            Serial.print("OK\x03");
+            Serial3.print("OK\x03");
           }
         }
         if (readString.startsWith("GET /power/")) {
-          Serial.print("{\"f1\":");
+          Serial3.print("{\"f1\":");
           cli();
           tempLong = PowerCounter1;
           sei();
-          Serial.print(tempLong);  
-          Serial.print(",\"f2\":");  
+          Serial3.print(tempLong);  
+          Serial3.print(",\"f2\":");  
           cli();
           tempLong = PowerCounter2;
           sei();
-          Serial.print(tempLong);  
-          Serial.print(",\"f3\":");  
+          Serial3.print(tempLong);  
+          Serial3.print(",\"f3\":");  
           cli();
           tempLong = PowerCounter3;
           sei();
-          Serial.print(tempLong);  
-          Serial.print(",\"pv\":");  
+          Serial3.print(tempLong);  
+          Serial3.print(",\"pv\":");  
           cli();
           tempLong = PowerCounter4;
           sei();
-          Serial.print(tempLong);  
-          Serial.print(",\"f1t\":");  
+          Serial3.print(tempLong);  
+          Serial3.print(",\"f1t\":");  
           cli();
           tempLong = PowerdtTimer1;
           sei();
-          Serial.print(tempLong);  
-          Serial.print(",\"f2t\":");  
+          Serial3.print(tempLong);  
+          Serial3.print(",\"f2t\":");  
           cli();
           tempLong = PowerdtTimer2;
           sei();
-          Serial.print(tempLong);  
-          Serial.print(",\"f3t\":");  
+          Serial3.print(tempLong);  
+          Serial3.print(",\"f3t\":");  
           cli();
           tempLong = PowerdtTimer3;
           sei();
-          Serial.print(tempLong);  
-          Serial.print(",\"pvt\":");  
+          Serial3.print(tempLong);  
+          Serial3.print(",\"pvt\":");  
           cli();
           tempLong = PowerdtTimer4;
           sei();
-          Serial.print(tempLong);  
-          Serial.print("}");
-          Serial.print("\x03");
+          Serial3.print(tempLong);  
+          Serial3.print("}");
+          Serial3.print("\x03");
         }
         if (readString.startsWith("SET /power/1/")) {
           i = 13;
@@ -478,7 +480,7 @@ void loop()
             cli();
             PowerCounter1 = tempLong;
             sei();
-            Serial.print("OK\x03");
+            Serial3.print("OK\x03");
           }
         }
         if (readString.startsWith("SET /power/2/")) {
@@ -490,7 +492,7 @@ void loop()
             cli();
             PowerCounter2 = tempLong;
             sei();
-            Serial.print("OK\x03");
+            Serial3.print("OK\x03");
           }
         }
         if (readString.startsWith("SET /power/3/")) {
@@ -502,7 +504,7 @@ void loop()
             cli();
             PowerCounter3 = tempLong;
             sei();
-            Serial.print("OK\x03");
+            Serial3.print("OK\x03");
           }
         }
         if (readString.startsWith("SET /power/4/")) {
@@ -514,7 +516,7 @@ void loop()
             cli();
             PowerCounter4 = tempLong;
             sei();
-            Serial.print("OK\x03");
+            Serial3.print("OK\x03");
           }
         }
         if (readString.startsWith("SET /tsetpoint/")) {
@@ -523,110 +525,110 @@ void loop()
           if (j > -1) {
             readString.substring(i, j).toCharArray(ch, 10);
             t_setpoint = atol(ch) / 10.0;
-            Serial.print("{\"ts\":");
-            Serial.print(t_setpoint);  
-            Serial.print("}");
-            Serial.print("\x03");
+            Serial3.print("{\"ts\":");
+            Serial3.print(t_setpoint);  
+            Serial3.print("}");
+            Serial3.print("\x03");
           }
         }
         if (readString.startsWith("GET /tsetpoint/")) {
-          Serial.print("{\"ts\":");
-          Serial.print(t_setpoint);  
-          Serial.print("}");
-          Serial.print("\x03");
+          Serial3.print("{\"ts\":");
+          Serial3.print(t_setpoint);  
+          Serial3.print("}");
+          Serial3.print("\x03");
         }
 
         if (readString.startsWith("GET /nrfdump/")) {
           Mirf.readRegister(0x00, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x01, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x02, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x03, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x04, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x05, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x06, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x07, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x08, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x09, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x0A, dumpTmp, 5);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(dumpTmp[1], HEX);
-      Serial.print(dumpTmp[2], HEX);
-      Serial.print(dumpTmp[3], HEX);
-      Serial.print(dumpTmp[4], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(dumpTmp[1], HEX);
+      Serial3.print(dumpTmp[2], HEX);
+      Serial3.print(dumpTmp[3], HEX);
+      Serial3.print(dumpTmp[4], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x0B, dumpTmp, 5);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(dumpTmp[1], HEX);
-      Serial.print(dumpTmp[2], HEX);
-      Serial.print(dumpTmp[3], HEX);
-      Serial.print(dumpTmp[4], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(dumpTmp[1], HEX);
+      Serial3.print(dumpTmp[2], HEX);
+      Serial3.print(dumpTmp[3], HEX);
+      Serial3.print(dumpTmp[4], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x0C, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x0D, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x0E, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x0F, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x10, dumpTmp, 5);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(dumpTmp[1], HEX);
-      Serial.print(dumpTmp[2], HEX);
-      Serial.print(dumpTmp[3], HEX);
-      Serial.print(dumpTmp[4], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(dumpTmp[1], HEX);
+      Serial3.print(dumpTmp[2], HEX);
+      Serial3.print(dumpTmp[3], HEX);
+      Serial3.print(dumpTmp[4], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x11, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x12, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x13, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x14, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x15, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x16, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x17, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x1C, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-      Serial.print(' ');
+      Serial3.print(dumpTmp[0], HEX);
+      Serial3.print(' ');
       Mirf.readRegister(0x1D, dumpTmp, 1);
-      Serial.print(dumpTmp[0], HEX);
-          Serial.print("\x03");
+      Serial3.print(dumpTmp[0], HEX);
+          Serial3.print("\x03");
         }
         break;
       default:
@@ -728,8 +730,8 @@ void loop()
   //nRF
   if(!Mirf.isSending() && Mirf.dataReady()){
     Mirf.getData(serialpacked.bytes);
-    //Serial.print("nRF receive cmd=");
-    //Serial.println(serialpacked.cmd.cmd, HEX);
+    //Serial3.print("nRF receive cmd=");
+    //Serial3.println(serialpacked.cmd.cmd, HEX);
     switch (serialpacked.cmd.cmd) {
       case 1:
         nRF_ds_t = serialpacked.floatval.value;
@@ -738,42 +740,42 @@ void loop()
           last_time_not_too_cold = millis();
         }
         nRF_ds_t_valid = true;
-        //Serial.print("ds  t =  ");
-        //Serial.print(serialpacked.floatval.value);
+        //Serial3.print("ds  t =  ");
+        //Serial3.print(serialpacked.floatval.value);
         break;
       case 2:
         nRF_bmp_p = serialpacked.int32val.value;
-        //Serial.print("bmp p = ");
-        //Serial.print(serialpacked.int32val.value);
+        //Serial3.print("bmp p = ");
+        //Serial3.print(serialpacked.int32val.value);
         break;
       case 3:
         nRF_bmp_t = serialpacked.floatval.value;
-        //Serial.print("bmp t =  ");
-        //Serial.print(serialpacked.floatval.value);
+        //Serial3.print("bmp t =  ");
+        //Serial3.print(serialpacked.floatval.value);
         break;
       case 4:
-        nRF_dht_h = serialpacked.intval.value;
-        //Serial.print("dht h =  ");
-        //Serial.print(serialpacked.intval.value);
+        nRF_dht_h = serialpacked.floatval.value;
+        //Serial3.print("dht h =  ");
+        //Serial3.print(serialpacked.intval.value);
         break;
       case 5:
-        nRF_dht_t = serialpacked.intval.value;
-        //Serial.print("dht t =  ");
-        //Serial.print(serialpacked.intval.value);
+        nRF_dht_t = serialpacked.floatval.value;
+        //Serial3.print("dht t =  ");
+        //Serial3.print(serialpacked.intval.value);
         break;
       case 6:
         nRF_ds2_t = serialpacked.floatval.value;
         nRF_ds2_t_last = millis();
         nRF_ds2_t_valid = true;
-        //Serial.print("ds2  t =  ");
-        //Serial.print(serialpacked.floatval.value);
+        //Serial3.print("ds2  t =  ");
+        //Serial3.print(serialpacked.floatval.value);
         break;
     }
     LastRxTimer = millis();
     doneDumping = false;
-//    Serial.print(" | dt = ");
-//    Serial.print(t2 - t1);
-//    Serial.println(" us");
+//    Serial3.print(" | dt = ");
+//    Serial3.print(t2 - t1);
+//    Serial3.println(" us");
     
   }
   if ((millis() - nRF_ds_t_last) > 30000) {
@@ -789,16 +791,16 @@ void loop()
       Mirf.writeRegister(0x05, dumpTmp, 1);
       //Mirf.setTADDR((byte *)"clie2");
       Mirf.send(serialpacked.bytes);
-      //Serial.print("nRF transmit ");
-      //Serial.println(sensid, DEC);
+      //Serial3.print("nRF transmit ");
+      //Serial3.println(sensid, DEC);
       
     } else {
-      //Serial.println('isSending??');
+      //Serial3.println('isSending??');
     }    
     SendTimer = millis();
   } 
   /*if ((millis() - LastRxTimer) > 2500) {
-    //Serial.println("timeout, reinit");
+    //Serial3.println("timeout, reinit");
     Mirf.init();
     Mirf.setRADDR((byte *)"clie1");
     Mirf.setTADDR((byte *)"clie2");
@@ -884,12 +886,12 @@ ISR(PCINT0_vect) {
 ISR(PCINT2_vect) {
   unsigned char dpk = (PINK ^ OldPINK);
   OldPINK = PINK;
-  //Serial.print(dpk, HEX);
+  //Serial3.print(dpk, HEX);
   if ((dpk & 0x01) == 0x01) {
     WaterCounter++;
     WaterdtTimer = millis() - WaterTimerOld;
     WaterTimerOld = millis();
-    //Serial.print(dpk, HEX);
+    //Serial3.print(dpk, HEX);
   }
   
 }
